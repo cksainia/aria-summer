@@ -955,6 +955,8 @@ function onSignedIn(role){
   const pb=document.getElementById("parentBtn"); if(pb) pb.style.display = (role==="parent") ? "" : "none";
   const so=document.getElementById("signoutBtn"); if(so) so.style.display = "";
   if (role!=="parent") Store.state.parentMode = false;  // Aria is read-only
+  const sd=document.getElementById("syncDot");
+  if (sd) sd.textContent = "☁️ Live sync on · signed in as " + (role==="parent" ? "Parent" : "Aria");
   render();
 }
 document.getElementById("signoutBtn").addEventListener("click",()=>{ if(window.AriaSync) window.AriaSync.signOut(); });
