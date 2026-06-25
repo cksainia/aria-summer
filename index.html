@@ -250,7 +250,7 @@
     <div class="siLogo" aria-hidden="true">☀️</div>
     <h2>Aria's Summer</h2>
     <p>Sign in to see your progress</p>
-    <input id="siUser" class="siIn" placeholder="username" aria-label="Username" autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false">
+    <input id="siUser" class="siIn" type="email" placeholder="email" aria-label="Email" autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false">
     <input id="siPass" class="siIn" type="password" placeholder="password" aria-label="Password" autocomplete="current-password">
     <div id="siErr" class="siErr"></div>
     <button id="siBtn" class="btn primary" style="width:100%">Sign in</button>
@@ -1334,9 +1334,7 @@ const firebaseConfig = {
   messagingSenderId: "943653530208",
   appId: "1:943653530208:web:014a7a7abf4b4ab2627105"
 };
-const PARENT_EMAIL = "chitts@gmail.com";          // <-- must match Firestore Rules + the user you created
-const ARIA_EMAIL   = "aria.gautam01@gmail.com";
-const ALIASES = { aria: ARIA_EMAIL, parent: PARENT_EMAIL };  // kid-friendly usernames
+const ARIA_UID = "BeZViKc1uaRwJztY7Flpxdnh2Ux1";  // opaque (not PII); anyone who isn't this UID is the parent
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -1369,8 +1367,7 @@ function startSync(){
 
 onAuthStateChanged(auth, (user)=>{
   if (!user){ role="none"; window.AriaSync.role="none"; if(unsub){unsub();unsub=null;} window.showSignIn && window.showSignIn(); return; }
-  const em = (user.email||"").toLowerCase();
-  role = em === PARENT_EMAIL.toLowerCase() ? "parent" : "aria";
+  role = (user.uid === ARIA_UID) ? "aria" : "parent";   // role by UID, not email
   window.AriaSync.role = role;
   window.hideSignIn && window.hideSignIn();
   window.onSignedIn && window.onSignedIn(role);
@@ -1380,7 +1377,7 @@ onAuthStateChanged(auth, (user)=>{
 async function doSignIn(){
   const u = (document.getElementById("siUser").value||"").trim();
   const p = document.getElementById("siPass").value||"";
-  const email = u.includes("@") ? u : (ALIASES[u.toLowerCase()] || u);   // "aria" -> her gmail, "parent" -> yours
+  const email = u;   // sign in with full email (no nickname aliases -> no emails in source)
   const err = document.getElementById("siErr"); err.textContent="";
   const btn = document.getElementById("siBtn"); btn.disabled=true; btn.textContent="Signing in…";
   try {
