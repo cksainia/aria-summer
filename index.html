@@ -230,11 +230,11 @@
 <div id="toast" class="toast"></div>
 
 <!-- PIN modal -->
-<div class="modal" id="pinModal">
+<div class="modal" id="pinModal" role="dialog" aria-modal="true" aria-label="Parent mode PIN">
   <div class="sheet">
     <h3>Parent mode 🔒</h3>
     <p>Enter your PIN to review &amp; update Aria's progress.</p>
-    <input class="pinIn" id="pinIn" type="tel" inputmode="numeric" maxlength="6" placeholder="••••">
+    <input class="pinIn" id="pinIn" type="tel" inputmode="numeric" maxlength="6" placeholder="••••" aria-label="Parent PIN">
     <div class="row">
       <button class="btn ghost" id="pinCancel">Cancel</button>
       <button class="btn primary" id="pinOk">Unlock</button>
@@ -245,13 +245,13 @@
 <div class="confetti hidden" id="confetti"></div>
 
 <!-- Sign-in gate -->
-<div class="signin" id="signin">
+<div class="signin" id="signin" role="dialog" aria-modal="true" aria-label="Sign in to Aria's Summer">
   <div class="siCard">
-    <div class="siLogo">☀️</div>
+    <div class="siLogo" aria-hidden="true">☀️</div>
     <h2>Aria's Summer</h2>
     <p>Sign in to see your progress</p>
-    <input id="siUser" class="siIn" placeholder="username" autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false">
-    <input id="siPass" class="siIn" type="password" placeholder="password" autocomplete="current-password">
+    <input id="siUser" class="siIn" placeholder="username" aria-label="Username" autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false">
+    <input id="siPass" class="siIn" type="password" placeholder="password" aria-label="Password" autocomplete="current-password">
     <div id="siErr" class="siErr"></div>
     <button id="siBtn" class="btn primary" style="width:100%">Sign in</button>
     <div class="siNote" id="siNote">Connecting…</div>
@@ -966,7 +966,7 @@ function renderProgress(){
       <div class="stat"><div class="n">${rate}%</div><div class="l">📊 Quota hit-rate</div></div>
       <div class="stat"><div class="n">${booksFinished()}</div><div class="l">📚 Books finished</div></div>
       <div class="stat"><div class="n">${elapsed}</div><div class="l">📅 Learning days done</div></div>
-      <div class="stat"><div class="n">${totalActive-elapsed}</div><div class="l">⏳ Days left to Labor Day</div></div>
+      <div class="stat"><div class="n">${Math.max(0,totalActive-elapsed)}</div><div class="l">⏳ Days left to Labor Day</div></div>
     </div>
     <h2 class="sec">By subject (this summer)</h2>`;
   dailyTracks().forEach(t=>{
@@ -1281,8 +1281,13 @@ function tryPin(){
 /* ============================================================
    AUTH BRIDGE  (called by the Firebase module below)
    ============================================================ */
-function showSignIn(){ const e=document.getElementById("signin"); if(e) e.classList.remove("hidden"); }
-function hideSignIn(){ const e=document.getElementById("signin"); if(e) e.classList.add("hidden"); }
+function appShellInert(on){
+  ["header","main","nav"].forEach(tag=>{ const el=document.querySelector(tag); if(!el) return;
+    if(on){ el.setAttribute("inert",""); el.setAttribute("aria-hidden","true"); }
+    else { el.removeAttribute("inert"); el.removeAttribute("aria-hidden"); } });
+}
+function showSignIn(){ const e=document.getElementById("signin"); if(e) e.classList.remove("hidden"); appShellInert(true); }
+function hideSignIn(){ const e=document.getElementById("signin"); if(e) e.classList.add("hidden"); appShellInert(false); }
 function onSignedIn(role){
   window.ROLE = role;
   const pb=document.getElementById("parentBtn"); if(pb) pb.style.display = (role==="parent") ? "" : "none";
@@ -1290,8 +1295,10 @@ function onSignedIn(role){
   if (role!=="parent") Store.state.parentMode = false;  // Aria is read-only
   const sd=document.getElementById("syncDot");
   if (sd) sd.textContent = "☁️ Live sync on · signed in as " + (role==="parent" ? "Parent" : "Aria");
+  appShellInert(false);
   render();
-  fetchHindi();   // refresh Hindi feed now that we know the role (parent can auto-record)
+  fetchHindi();   // refresh Hindi feed (only after auth)
+  if (!window._hindiPoll) window._hindiPoll = setInterval(fetchHindi, 60000);
 }
 document.getElementById("signoutBtn").addEventListener("click",()=>{ if(window.AriaSync) window.AriaSync.signOut(); });
 window.showSignIn=showSignIn; window.hideSignIn=hideSignIn; window.onSignedIn=onSignedIn; window.render=render;
@@ -1301,11 +1308,7 @@ window.showSignIn=showSignIn; window.hideSignIn=hideSignIn; window.onSignedIn=on
    ============================================================ */
 Store.load();
 Store.state.parentMode=false; // always start in Aria's view
-render();
-
-// Hindi Slayer live feed: fetch now + poll every 60s
-fetchHindi();
-setInterval(fetchHindi, 60000);
+appShellInert(true);   // keep app inert/hidden until authenticated — render + Hindi fetch happen in onSignedIn
 
 // register service worker (offline shell + installability)
 if ("serviceWorker" in navigator) {
