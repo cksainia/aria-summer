@@ -234,6 +234,7 @@ window.PLAN = {
   restDay:   0,                 // 0 = Sunday off
   parentPin: "2468",            // change me
   hindiUrl:  "https://cksainia.github.io/hindi-garden/",
+  hindiSyncCode: "d50574f432adedb2",   // read-only progress feed from Hindi Slayer
   goals: { booksTarget: 50 },
   tracks: [
     { id:"reading", icon:"📚", label:"Reading",         target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
@@ -496,7 +497,30 @@ function activeDaysUpTo(upToKey){
 const dailyTracks = () => PLAN.tracks.filter(t=>t.cadence==="daily");
 const coreDailyTracks = () => PLAN.tracks.filter(t=>t.cadence==="daily" && t.core);
 
+/* ---- Hindi Slayer live progress (read-only feed from the Cloudflare Worker) ---- */
+let hindiData = null;
+try { const c = localStorage.getItem("hindiSnap"); if (c) hindiData = JSON.parse(c); } catch(e){}
+const HINDI_URL = "https://hindi-hop-sync.chitresh.workers.dev/?code=" + encodeURIComponent(PLAN.hindiSyncCode + "-sum");
+function hindiActiveToday(){ return !!(hindiData && hindiData.lastActive === todayKey()); }
+async function fetchHindi(){
+  try {
+    const r = await fetch(HINDI_URL, { cache:"no-store" });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data || data.app !== "hindi-slayer") return;   // null = not synced yet
+    hindiData = data;
+    try { localStorage.setItem("hindiSnap", JSON.stringify(data)); } catch(e){}
+    // parent records today's Hindi completion so it persists for streak/history
+    const t = todayKey();
+    const stored = Store.state.completions[t] && Store.state.completions[t].hindi;
+    if (window.ROLE === "parent" && data.lastActive === t && !stored) setDone(t, "hindi", true);
+    render();
+  } catch(e){ /* offline / worker down -> keep last cached snapshot */ }
+}
+
 function isDone(dayKey, trackId){
+  // Hindi today is auto-derived from her live app activity (shows instantly on every device)
+  if (trackId === "hindi" && dayKey === todayKey() && hindiActiveToday()) return true;
   const day = Store.state.completions[dayKey];
   return !!(day && day[trackId]);
 }
@@ -655,6 +679,12 @@ function renderToday(){
       const ch=currentChapter(), tgt=beastDailyTarget(), today=beastDoneToday();
       sub = `Ch ${ch.num}: ${ch.title} · 🎯 ${today}/${tgt} lessons today`;
       extra = `<button class="goBtn" data-beast="1">Lessons ▸</button>`;
+    } else if (t.id==="hindi"){
+      sub = hindiData
+        ? `Lv ${hindiData.level} ${hindiData.levelName} · ${hindiData.wordsMastered}/${hindiData.wordsLearned} words · 🔥${hindiData.streakDays}`
+        : t.target;
+      extra = `<button class="goBtn" data-hindi="1">Stats ▸</button>`
+            + `<a class="goBtn" href="${t.link}" target="_blank" rel="noopener" style="background:var(--goldL);color:#8a5a00">Open ▸</a>`;
     } else if (t.kind==="external"){
       extra = `<a class="goBtn" href="${t.link}" target="_blank" rel="noopener">Open ▸</a>`;
     }
@@ -693,6 +723,8 @@ function renderToday(){
   if (editing) { wireDayNav(); wireToggles(); }
   const bb=document.querySelector("[data-beast]");
   if (bb) bb.onclick=()=>{ view="beast"; beastOpenChapter=null; render(); };
+  const hb=document.querySelector("[data-hindi]");
+  if (hb) hb.onclick=()=>{ view="hindi"; render(); };
 }
 
 function weekStartKey(refKey){
@@ -888,11 +920,81 @@ function renderBeast(){
   }
 }
 
+function renderHindi(){
+  let html = `<div style="display:flex;align-items:center;gap:10px;margin:8px 0 2px">
+      <button id="hindiBack" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer;font-family:inherit">‹ Back</button>
+      <div style="font-weight:800;font-size:17px">🪷 Hindi Slayer</div></div>`;
+
+  if (!hindiData){
+    html += `<div class="editHint">No Hindi data yet — open Hindi Slayer, then <b>Parent → Settings &amp; Sync → Sync now</b> once.</div>
+      <a class="btn primary" style="display:block;text-align:center;text-decoration:none;max-width:280px" href="${PLAN.hindiUrl}" target="_blank" rel="noopener">Open Hindi Slayer ▸</a>`;
+    document.getElementById("main").innerHTML = html;
+    document.getElementById("hindiBack").onclick=()=>{ view="today"; render(); };
+    return;
+  }
+
+  const h = hindiData, activeToday = hindiActiveToday();
+  // headline card
+  html += `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink)">
+      <div class="qtop"><span>Level ${h.level} · ${esc(h.levelName)}</span><span>⭐ ${h.stars}</span></div>
+      <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${h.wordsLearned?Math.round(h.wordsMastered/h.wordsLearned*100):0}%"></div></div>
+      <div class="qmsg" style="color:var(--muted)">${h.wordsMastered}/${h.wordsLearned} words mastered</div>
+    </div>`;
+  // stat chips
+  html += `<div class="stats" style="margin-top:12px">
+      <div class="stat"><div class="n">${h.streakDays}</div><div class="l">🔥 Day streak</div></div>
+      <div class="stat"><div class="n">${h.daysThisWeek}/7</div><div class="l">📅 Days this week</div></div>
+      <div class="stat"><div class="n">${h.badges}/${h.badgesTotal}</div><div class="l">🏅 Badges</div></div>
+      <div class="stat"><div class="n">${h.lastQuizPct==null?"—":h.lastQuizPct+"%"}</div><div class="l">📝 Last quiz (${h.quizzesTaken} taken)</div></div>
+    </div>`;
+  // freshness / today flag
+  html += `<div class="editHint" style="${activeToday?'background:var(--greenL);border-color:#9fe7c4;color:#065f46':'background:var(--goldL);border-color:#f0d28a;color:#7a5500'}">
+      ${activeToday ? "✓ Practiced today — Hindi quota met!" : "Not practiced today yet · last active "+(h.lastActive||"never")}</div>`;
+
+  // skills bars (only show > 0, then the rest greyed)
+  const skills = Object.entries(h.skills||{}).sort((a,b)=>b[1]-a[1]);
+  html += `<h2 class="sec">Skills</h2>`;
+  skills.forEach(([name,val])=>{
+    html += `<div class="task" style="padding:10px 14px">
+      <div class="tBody"><div class="tLabel" style="font-size:14px">${esc(name)}</div>
+        <div class="qbar" style="background:var(--soft);margin-top:8px"><div class="qfill" style="width:${val}%;background:${val?'linear-gradient(90deg,#34d3c0,#0D9488)':'#ddd'}"></div></div></div>
+      <div style="font-weight:800;color:var(--teal);min-width:38px;text-align:right">${val}</div>
+    </div>`;
+  });
+
+  // topics (only ones she's started)
+  const topics = Object.values(h.byTopic||{}).filter(t=>t.learned>0).sort((a,b)=>b.mastered-a.mastered);
+  if (topics.length){
+    html += `<h2 class="sec">Topics started (${topics.length})</h2>`;
+    topics.forEach(t=>{
+      html += `<div class="task" style="padding:10px 14px">
+        <div class="tBody"><div class="tLabel" style="font-size:14px">${esc(t.name)}</div>
+          <div class="qbar" style="background:var(--soft);margin-top:8px"><div class="qfill" style="width:${t.total?Math.round(t.mastered/t.total*100):0}%"></div></div></div>
+        <div style="font-weight:800;color:var(--teal);min-width:54px;text-align:right">${t.mastered}/${t.total}</div>
+      </div>`;
+    });
+  }
+
+  // footer: synced time + actions
+  const synced = h.updatedAt ? new Date(h.updatedAt).toLocaleString() : "—";
+  html += `<div style="display:flex;gap:8px;margin:16px 0 8px">
+      <button id="hindiRefresh" class="btn ghost" style="flex:1">↻ Refresh</button>
+      <a class="btn primary" style="flex:1;text-align:center;text-decoration:none" href="${PLAN.hindiUrl}" target="_blank" rel="noopener">Open Hindi Slayer ▸</a>
+    </div>
+    <div style="text-align:center;color:var(--muted);font-size:11px;padding-bottom:8px">Last synced from her app: ${synced}</div>`;
+
+  document.getElementById("main").innerHTML = html;
+  document.getElementById("hindiBack").onclick=()=>{ view="today"; render(); };
+  const rf=document.getElementById("hindiRefresh");
+  if (rf) rf.onclick=()=>{ rf.textContent="↻ Refreshing…"; fetchHindi(); };
+}
+
 function render(){
   renderHeader();
   if (view==="today") renderToday();
   else if (view==="books") renderBooks();
   else if (view==="beast") renderBeast();
+  else if (view==="hindi") renderHindi();
   else renderProgress();
 }
 
@@ -961,6 +1063,7 @@ function onSignedIn(role){
   const sd=document.getElementById("syncDot");
   if (sd) sd.textContent = "☁️ Live sync on · signed in as " + (role==="parent" ? "Parent" : "Aria");
   render();
+  fetchHindi();   // refresh Hindi feed now that we know the role (parent can auto-record)
 }
 document.getElementById("signoutBtn").addEventListener("click",()=>{ if(window.AriaSync) window.AriaSync.signOut(); });
 window.showSignIn=showSignIn; window.hideSignIn=hideSignIn; window.onSignedIn=onSignedIn; window.render=render;
@@ -971,6 +1074,10 @@ window.showSignIn=showSignIn; window.hideSignIn=hideSignIn; window.onSignedIn=on
 Store.load();
 Store.state.parentMode=false; // always start in Aria's view
 render();
+
+// Hindi Slayer live feed: fetch now + poll every 60s
+fetchHindi();
+setInterval(fetchHindi, 60000);
 
 // register service worker (offline shell + installability)
 if ("serviceWorker" in navigator) {
