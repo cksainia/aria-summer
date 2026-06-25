@@ -137,6 +137,22 @@
   @keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:1;}}
   .hidden{display:none!important;}
 
+  /* Habits */
+  .habitHero{background:linear-gradient(160deg,#DB2777 0%,#9D174D 60%,#7C3AED 130%);color:#fff;
+    border-radius:18px;padding:18px;box-shadow:var(--shadow);}
+  .heartChip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:999px;
+    padding:6px 12px;font-size:13px;font-weight:800;display:inline-flex;gap:6px;align-items:center;}
+  .badge{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;box-shadow:var(--shadow);}
+  .badge.earned{background:linear-gradient(160deg,#FFF7E6,#FFE8C2);border-color:#f0c97a;}
+  .badge .bi{font-size:30px;filter:grayscale(1);opacity:.4;}
+  .badge.earned .bi{filter:none;opacity:1;}
+  .badge .bn{font-weight:800;font-size:12px;margin-top:4px;}
+  .badge .bd{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3;}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);z-index:60;
+    background:#16233A;color:#fff;padding:12px 18px;border-radius:14px;font-weight:700;font-size:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:86%;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
   /* Sign-in gate */
   .signin{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;
     background:linear-gradient(160deg,#0D9488 0%,#0B7A70 55%,#1E3A8A 130%);}
@@ -189,9 +205,12 @@
 
 <nav>
   <button data-view="today" class="on"><span class="ni">📋</span>Today</button>
+  <button data-view="habits"><span class="ni">❤️</span>Habits</button>
   <button data-view="books"><span class="ni">📚</span>Books</button>
   <button data-view="progress"><span class="ni">📈</span>Progress</button>
 </nav>
+
+<div id="toast" class="toast"></div>
 
 <!-- PIN modal -->
 <div class="modal" id="pinModal">
@@ -236,6 +255,27 @@ window.PLAN = {
   hindiUrl:  "https://cksainia.github.io/hindi-garden/",
   hindiSyncCode: "d50574f432adedb2",   // read-only progress feed from Hindi Slayer
   goals: { booksTarget: 50 },
+
+  /* GOOD HABITS & HELPING (social-emotional side, parent-marked) */
+  habitDailyGoal: 6,                   // hit this many -> "Helper of the Day" celebration
+  reward: { name: "a special treat 🎁", goal: 300 },   // combined academic + habit stars
+  habits: [
+    { id:"brushAM",  icon:"🪥", label:"Brush teeth — morning",  praise:"Sparkly morning smile! ✨" },
+    { id:"brushPM",  icon:"🪥", label:"Brush teeth — evening",  praise:"All set for a good night! 🌙" },
+    { id:"bath",     icon:"🛁", label:"Take a bath",            praise:"Fresh and clean! 🛁" },
+    { id:"helpMom",  icon:"🧹", label:"Help Mom (15 min)",      praise:"Mom really appreciated your help! 💛" },
+    { id:"helpDad",  icon:"🔧", label:"Help Dad (15 min)",      praise:"Dad couldn't have done it without you! 💙" },
+    { id:"richit",   icon:"🧸", label:"Play with Richit",       praise:"Richit had so much fun with you! 🧸" },
+    { id:"tidy",     icon:"🧺", label:"Tidy my room",           praise:"Your room looks wonderful! 🧺" },
+    { id:"grateful", icon:"🙏", label:"One thing I'm grateful for", praise:"A grateful heart is a happy heart! 🙏" },
+    { id:"move",     icon:"🏃", label:"Move my body / outside play", praise:"Strong body, happy mind! 🌿" },
+  ],
+  badges: [
+    { id:"helper", icon:"🦸", name:"Super Helper",     desc:"Helped Mom & Dad 5 days this week" },
+    { id:"smile",  icon:"😁", name:"Sparkle Smile",    desc:"Brushed morning & night 6 days" },
+    { id:"sib",    icon:"🧸", name:"Best Big Sister",  desc:"Played with Richit 5 days" },
+    { id:"grate",  icon:"🌟", name:"Grateful Heart",   desc:"Gratitude 6 days this week" },
+  ],
   tracks: [
     { id:"reading", icon:"📚", label:"Reading",         target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
     { id:"beast",   icon:"🧮", label:"Beast Academy",   target:"25 min",         kind:"task",     core:true,  cadence:"daily" },
@@ -419,7 +459,7 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-const SYNC_FIELDS = ["completions","books","beast","beastSeed","booksSeed"]; // what lives in the cloud doc
+const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed"]; // what lives in the cloud doc
 const Store = {
   state: null,
   load(){
@@ -435,6 +475,7 @@ const Store = {
   migrate(){
     let changed = false;
     if (!this.state.completions) this.state.completions = {};
+    if (!this.state.habits) this.state.habits = {};
     // shelf from plan (preserves statuses by id across refreshes)
     if (!this.state.books || this.state.booksSeed !== 3){
       const prev = {}; (this.state.books||[]).forEach(b=>{ prev[b.id]=b.status; });
@@ -530,6 +571,35 @@ function setDone(dayKey, trackId, val){
   if (!val) delete Store.state.completions[dayKey][trackId];
   Store.save();
 }
+
+/* ---- Good Habits ---- */
+function habitDone(dayKey, id){ const d = Store.state.habits && Store.state.habits[dayKey]; return !!(d && d[id]); }
+function setHabit(dayKey, id, val){
+  if (!Store.state.habits) Store.state.habits = {};
+  if (!Store.state.habits[dayKey]) Store.state.habits[dayKey] = {};
+  if (val) Store.state.habits[dayKey][id] = true; else delete Store.state.habits[dayKey][id];
+  Store.save();
+}
+function habitsDoneOn(dayKey){ return PLAN.habits.filter(h=>habitDone(dayKey,h.id)).length; }
+function heartsTotal(){ let n=0; const H=Store.state.habits||{}; for(const d in H) n+=Object.keys(H[d]).length; return n; }
+function habitWeekCount(id){ const start=parseYMD(weekStartKey(todayKey())); let n=0; for(let i=0;i<7;i++){ if(habitDone(ymd(addDays(start,i)),id)) n++; } return n; }
+function badgeEarned(b){
+  if (b.id==="helper") return Math.min(habitWeekCount("helpMom"), habitWeekCount("helpDad")) >= 5;
+  if (b.id==="smile")  return Math.min(habitWeekCount("brushAM"), habitWeekCount("brushPM")) >= 6;
+  if (b.id==="sib")    return habitWeekCount("richit") >= 5;
+  if (b.id==="grate")  return habitWeekCount("grateful") >= 6;
+  return false;
+}
+function badgeProgress(b){
+  if (b.id==="helper") return Math.min(habitWeekCount("helpMom"), habitWeekCount("helpDad"))+"/5";
+  if (b.id==="smile")  return Math.min(habitWeekCount("brushAM"), habitWeekCount("brushPM"))+"/6";
+  if (b.id==="sib")    return habitWeekCount("richit")+"/5";
+  if (b.id==="grate")  return habitWeekCount("grateful")+"/6";
+  return "";
+}
+// combined reward currency: every academic task done + every habit done = 1 star
+function academicCompletions(){ let n=0; const C=Store.state.completions||{}; for(const d in C) n+=Object.keys(C[d]).length; return n; }
+function totalRewardStars(){ return academicCompletions() + heartsTotal(); }
 
 /* a day's quota is "met" when all CORE daily tracks are done */
 function dayMet(dayKey){
@@ -998,9 +1068,75 @@ function renderHindi(){
   if (rf) rf.onclick=()=>{ rf.textContent="↻ Refreshing…"; fetchHindi(); };
 }
 
+let _toastTimer=null;
+function showToast(msg){
+  const el=document.getElementById("toast"); if(!el) return;
+  el.textContent=msg; el.classList.add("show");
+  clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>el.classList.remove("show"), 2300);
+}
+
+function renderHabits(){
+  const editing = Store.state.parentMode, t = todayKey();
+  const done = habitsDoneOn(t), goal = PLAN.habitDailyGoal;
+  let html = `<div class="habitHero">
+      <div style="font-size:13px;letter-spacing:1.5px;text-transform:uppercase;opacity:.8">Good Habits &amp; Helping</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px">
+        <div style="font-size:22px;font-weight:800">${done}/${goal} today</div>
+        <div class="heartChip">❤️ ${heartsTotal()} hearts</div>
+      </div>
+      <div class="qbar" style="background:rgba(255,255,255,.25);margin-top:10px"><div class="qfill" style="width:${Math.min(100,Math.round(done/goal*100))}%;background:linear-gradient(90deg,#FFD24A,#fff)"></div></div>
+      <div style="font-size:12px;opacity:.95;margin-top:8px">${done>=goal ? "🌟 Helper of the Day — amazing!" : (done? "Keep going — kindness counts! 💛" : "Let's have a great day! 💛")}</div>
+    </div>`;
+
+  const stars = totalRewardStars(), rg = PLAN.reward.goal;
+  html += `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink);margin-top:12px">
+      <div class="qtop"><span>🫙 Reward jar · ${esc(PLAN.reward.name)}</span><span>${stars}/${rg}</span></div>
+      <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${Math.min(100,Math.round(stars/rg*100))}%"></div></div>
+      <div class="qmsg" style="color:var(--muted)">school stars + habit hearts, combined</div>
+    </div>`;
+
+  html += `<h2 class="sec">Today's habits</h2>`;
+  PLAN.habits.forEach(h=>{
+    const d = habitDone(t,h.id);
+    const checkCls = "check"+(d?" done":"")+(editing?" editable":"");
+    html += `<div class="task${d?" done":""}">
+      <div class="tIcon">${h.icon}</div>
+      <div class="tBody"><div class="tLabel">${esc(h.label)}</div></div>
+      <div class="${checkCls}" data-habit="${h.id}">${d?"✓":""}</div>
+    </div>`;
+  });
+
+  html += `<h2 class="sec">This week's badges</h2><div class="stats">`;
+  PLAN.badges.forEach(b=>{
+    const earned = badgeEarned(b);
+    html += `<div class="badge${earned?' earned':''}">
+      <div class="bi">${b.icon}</div><div class="bn">${esc(b.name)}</div>
+      <div class="bd">${esc(b.desc)}</div>
+      <div class="bd" style="font-weight:800;color:${earned?'#b8860b':'var(--muted)'}">${earned?'Earned! 🎉':badgeProgress(b)}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  document.getElementById("main").innerHTML = html;
+  if (editing){
+    document.querySelectorAll("[data-habit]").forEach(el=>{
+      el.addEventListener("click",()=>{
+        const id=el.getAttribute("data-habit"), was=habitDone(t,id);
+        const beforeGoal = habitsDoneOn(t) >= goal;
+        setHabit(t,id,!was);
+        if (!was){ const h=PLAN.habits.find(x=>x.id===id); showToast((h.praise||"Great job!") ); }
+        const afterGoal = habitsDoneOn(t) >= goal;
+        renderHeader(); renderHabits();
+        if (!beforeGoal && afterGoal) celebrate();
+      });
+    });
+  }
+}
+
 function render(){
   renderHeader();
   if (view==="today") renderToday();
+  else if (view==="habits") renderHabits();
   else if (view==="books") renderBooks();
   else if (view==="beast") renderBeast();
   else if (view==="hindi") renderHindi();
