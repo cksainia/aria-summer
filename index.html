@@ -191,6 +191,7 @@
       <div class="chip">🔥 <span id="streak">0</span>-day streak</div>
       <div class="chip">⭐ <span id="starsTotal">0</span> days crushed</div>
       <div class="chip">📚 <span id="booksDone">0</span>/<span id="booksGoal">12</span> books</div>
+      <div class="chip">❤️ <span id="heartsCount">0</span> hearts</div>
     </div>
     <div class="quota">
       <div class="qtop"><span>Today's quota</span><span id="qCount">0 / 0</span></div>
@@ -258,7 +259,8 @@ window.PLAN = {
 
   /* GOOD HABITS & HELPING (social-emotional side, parent-marked) */
   habitDailyGoal: 6,                   // hit this many -> "Helper of the Day" celebration
-  reward: { name: "a special treat 🎁", goal: 300 },   // combined academic + habit stars
+  // combined academic + habit stars; repeating reward paced for ~3 over the summer
+  reward: { name: "Movie night at the theater 🎬", perReward: 200, totalRewards: 3 },
   habits: [
     { id:"brushAM",  icon:"🪥", label:"Brush teeth — morning",  praise:"Sparkly morning smile! ✨" },
     { id:"brushPM",  icon:"🪥", label:"Brush teeth — evening",  praise:"All set for a good night! 🌙" },
@@ -692,6 +694,7 @@ function renderHeader(){
   document.getElementById("starsTotal").textContent = daysCrushed();
   document.getElementById("booksDone").textContent = booksFinished();
   document.getElementById("booksGoal").textContent = PLAN.goals.booksTarget;
+  document.getElementById("heartsCount").textContent = heartsTotal();
 
   const core = coreDailyTracks();
   const done = core.filter(t=>isDone(todayKey(),t.id)).length;
@@ -1088,11 +1091,14 @@ function renderHabits(){
       <div style="font-size:12px;opacity:.95;margin-top:8px">${done>=goal ? "🌟 Helper of the Day — amazing!" : (done? "Keep going — kindness counts! 💛" : "Let's have a great day! 💛")}</div>
     </div>`;
 
-  const stars = totalRewardStars(), rg = PLAN.reward.goal;
+  const stars = totalRewardStars(), per = PLAN.reward.perReward, totR = PLAN.reward.totalRewards;
+  const earnedR = Math.min(totR, Math.floor(stars/per));
+  const allR = earnedR >= totR;
+  const intoNext = allR ? per : (stars - earnedR*per);
   html += `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink);margin-top:12px">
-      <div class="qtop"><span>🫙 Reward jar · ${esc(PLAN.reward.name)}</span><span>${stars}/${rg}</span></div>
-      <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${Math.min(100,Math.round(stars/rg*100))}%"></div></div>
-      <div class="qmsg" style="color:var(--muted)">school stars + habit hearts, combined</div>
+      <div class="qtop"><span>🫙 ${esc(PLAN.reward.name)}</span><span>${earnedR}/${totR} earned 🎬</span></div>
+      <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${Math.round(intoNext/per*100)}%"></div></div>
+      <div class="qmsg" style="color:var(--muted)">${allR ? "🍿 All "+totR+" movie nights earned — incredible summer!" : intoNext+"/"+per+" stars to your next movie night (school stars + habit hearts)"}</div>
     </div>`;
 
   html += `<h2 class="sec">Today's habits</h2>`;
