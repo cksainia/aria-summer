@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aria's Summer">
+<meta name="theme-color" content="#0D9488">
+<title>Aria's Summer Tracker</title>
+<style>
+  :root{
+    --bg:#F6F4EF; --card:#FFFFFF; --ink:#16233A; --muted:#6B7280;
+    --line:#E7E1D6; --soft:#FAF8F3;
+    --teal:#0D9488; --tealL:#CCFBF1;
+    --gold:#E8A020; --goldL:#FFF3D6;
+    --coral:#E8503A; --coralL:#FEE8E4;
+    --violet:#7C3AED; --violetL:#EDE9FE;
+    --green:#059669; --greenL:#D1FAE5;
+    --navy:#1E3A8A;
+    --shadow:0 6px 22px rgba(20,35,58,.08);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;}
+  body{padding-bottom:84px;}
+  .wrap{max-width:680px;margin:0 auto;padding:0 16px;}
+
+  /* Header */
+  header{background:linear-gradient(160deg,#0D9488 0%,#0B7A70 55%,#1E3A8A 130%);
+    color:#fff;padding:18px 0 22px;position:relative;overflow:hidden;}
+  header .wrap{position:relative;}
+  .hi{font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.7;}
+  .hrow{display:flex;align-items:center;justify-content:space-between;margin-top:4px;}
+  .hname{font-size:26px;font-weight:800;}
+  .hdate{font-size:13px;opacity:.85;margin-top:2px;}
+  .chips{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  .chip{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+    border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700;display:flex;gap:7px;align-items:center;}
+  .parentBtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;
+    border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+  .parentBtn.on{background:var(--gold);border-color:var(--gold);color:#3a2a00;}
+
+  /* Quota ring/bar */
+  .quota{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.2);
+    border-radius:14px;padding:12px 14px;margin-top:14px;}
+  .qtop{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;}
+  .qbar{height:10px;background:rgba(255,255,255,.2);border-radius:99px;margin-top:9px;overflow:hidden;}
+  .qfill{height:100%;background:linear-gradient(90deg,#FFE27A,#E8A020);border-radius:99px;transition:width .5s cubic-bezier(.2,.7,.2,1);}
+  .qmsg{font-size:12px;opacity:.9;margin-top:8px;}
+
+  /* Sections */
+  h2.sec{font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--muted);
+    margin:22px 4px 10px;font-weight:800;}
+
+  /* Task cards */
+  .task{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);
+    transition:transform .12s,box-shadow .2s;}
+  .task.done{background:linear-gradient(90deg,var(--greenL),#fff);border-color:#9fe7c4;}
+  .tIcon{font-size:30px;width:46px;height:46px;border-radius:12px;background:var(--soft);
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .task.done .tIcon{background:var(--greenL);}
+  .tBody{flex:1;min-width:0;}
+  .tLabel{font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px;}
+  .tTarget{font-size:13px;color:var(--muted);margin-top:2px;}
+  .tag{font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:.5px;}
+  .tag.core{background:var(--coralL);color:var(--coral);}
+  .tag.opt{background:var(--goldL);color:var(--gold);}
+  .check{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);background:#fff;
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:default;}
+  .check.done{background:var(--green);border-color:var(--green);}
+  .check.editable{cursor:pointer;border-color:var(--teal);}
+  .goBtn{background:var(--violetL);color:var(--violet);border:none;border-radius:10px;
+    padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer;text-decoration:none;display:inline-block;}
+
+  /* Backlog */
+  .backlog{background:var(--coralL);border:1px solid #f3b6ab;border-radius:14px;padding:12px 14px;margin-bottom:6px;}
+  .backlog h3{margin:0 0 8px;font-size:14px;color:var(--coral);display:flex;align-items:center;gap:7px;}
+  .bchips{display:flex;flex-wrap:wrap;gap:7px;}
+  .bchip{background:#fff;border:1px solid #f3b6ab;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;color:var(--coral);}
+
+  /* Books */
+  .book{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+    margin-bottom:9px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);}
+  .bCover{width:38px;height:52px;border-radius:6px;background:linear-gradient(160deg,#0D9488,#1E3A8A);
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;}
+  .bInfo{flex:1;min-width:0;}
+  .bTitle{font-weight:800;font-size:15px;}
+  .bAuthor{font-size:12px;color:var(--muted);}
+  .statusSel{border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:12px;font-weight:700;
+    font-family:inherit;background:#fff;color:var(--ink);}
+  .statusPill{font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;}
+  .st-unread{background:var(--soft);color:var(--muted);}
+  .st-reading{background:var(--goldL);color:var(--gold);}
+  .st-finished{background:var(--greenL);color:var(--green);}
+
+  /* Stats */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow);}
+  .stat .n{font-size:26px;font-weight:800;color:var(--teal);}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  /* Bottom nav */
+  nav{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);
+    backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;z-index:20;}
+  nav button{flex:1;background:none;border:none;padding:10px 0 14px;font-size:11px;font-weight:700;
+    color:var(--muted);cursor:pointer;font-family:inherit;}
+  nav button .ni{display:block;font-size:21px;margin-bottom:2px;}
+  nav button.on{color:var(--teal);}
+
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(20,35,58,.45);display:none;align-items:center;justify-content:center;z-index:40;padding:20px;}
+  .modal.show{display:flex;}
+  .sheet{background:#fff;border-radius:18px;padding:22px;max-width:340px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+  .sheet h3{margin:0 0 6px;}
+  .sheet p{margin:0 0 14px;color:var(--muted);font-size:14px;}
+  .pinIn{width:100%;font-size:22px;text-align:center;letter-spacing:8px;padding:12px;border:2px solid var(--line);
+    border-radius:12px;font-family:inherit;}
+  .sheet .row{display:flex;gap:8px;margin-top:14px;}
+  .btn{flex:1;border:none;border-radius:12px;padding:12px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;}
+  .btn.primary{background:var(--teal);color:#fff;}
+  .btn.ghost{background:var(--soft);color:var(--ink);}
+
+  .editHint{background:var(--goldL);border:1px solid #f0d28a;color:#7a5500;border-radius:12px;
+    padding:10px 14px;font-size:13px;font-weight:700;margin:12px 0;display:flex;align-items:center;gap:8px;}
+  .dayNav{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 2px;}
+  .dayNav button{background:var(--card);border:1px solid var(--line);border-radius:10px;width:38px;height:38px;
+    font-size:18px;cursor:pointer;}
+  .dayNav .lbl{font-weight:800;font-size:15px;min-width:150px;text-align:center;}
+
+  .confetti{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden;}
+  .confetti i{position:absolute;width:9px;height:14px;top:-20px;opacity:.9;animation:fall linear forwards;}
+  @keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:1;}}
+  .hidden{display:none!important;}
+
+  /* Sign-in gate */
+  .signin{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;
+    background:linear-gradient(160deg,#0D9488 0%,#0B7A70 55%,#1E3A8A 130%);}
+  .signin.hidden{display:none!important;}
+  .siCard{background:#fff;border-radius:20px;padding:30px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.35);}
+  .siLogo{font-size:46px;line-height:1;}
+  .siCard h2{margin:8px 0 2px;font-size:22px;}
+  .siCard p{margin:0 0 18px;color:var(--muted);font-size:14px;}
+  .siIn{width:100%;padding:13px;border:2px solid var(--line);border-radius:12px;font-size:16px;font-family:inherit;margin-bottom:10px;}
+  .siIn:focus{outline:none;border-color:var(--teal);}
+  .siErr{color:var(--coral);font-size:13px;font-weight:700;min-height:18px;margin:2px 0 8px;}
+  .siNote{color:var(--muted);font-size:12px;margin-top:14px;}
+  .signoutBtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;
+    border-radius:999px;padding:8px 11px;font-size:13px;font-weight:700;cursor:pointer;}
+  .restCard{background:var(--violetL);border:1px solid #d6c8f5;border-radius:16px;padding:20px;text-align:center;}
+  .restCard .big{font-size:40px;}
+  .syncDot{font-size:11px;opacity:.75;margin-top:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="hrow">
+      <div>
+        <div class="hi">Summer Learning</div>
+        <div class="hname" id="hName">Aria's Summer</div>
+        <div class="hdate" id="hDate">—</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="parentBtn" id="parentBtn">👤 Parent</button>
+        <button class="signoutBtn" id="signoutBtn" style="display:none" title="Sign out">⎋</button>
+      </div>
+    </div>
+    <div class="chips">
+      <div class="chip">🔥 <span id="streak">0</span>-day streak</div>
+      <div class="chip">⭐ <span id="starsTotal">0</span> days crushed</div>
+      <div class="chip">📚 <span id="booksDone">0</span>/<span id="booksGoal">12</span> books</div>
+    </div>
+    <div class="quota">
+      <div class="qtop"><span>Today's quota</span><span id="qCount">0 / 0</span></div>
+      <div class="qbar"><div class="qfill" id="qFill" style="width:0%"></div></div>
+      <div class="qmsg" id="qMsg">Let's get started! ✨</div>
+    </div>
+    <div class="syncDot" id="syncDot">💾 Saved on this device · sync not connected yet</div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<nav>
+  <button data-view="today" class="on"><span class="ni">📋</span>Today</button>
+  <button data-view="books"><span class="ni">📚</span>Books</button>
+  <button data-view="progress"><span class="ni">📈</span>Progress</button>
+</nav>
+
+<!-- PIN modal -->
+<div class="modal" id="pinModal">
+  <div class="sheet">
+    <h3>Parent mode 🔒</h3>
+    <p>Enter your PIN to review &amp; update Aria's progress.</p>
+    <input class="pinIn" id="pinIn" type="tel" inputmode="numeric" maxlength="6" placeholder="••••">
+    <div class="row">
+      <button class="btn ghost" id="pinCancel">Cancel</button>
+      <button class="btn primary" id="pinOk">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<div class="confetti hidden" id="confetti"></div>
+
+<!-- Sign-in gate -->
+<div class="signin" id="signin">
+  <div class="siCard">
+    <div class="siLogo">☀️</div>
+    <h2>Aria's Summer</h2>
+    <p>Sign in to see your progress</p>
+    <input id="siUser" class="siIn" placeholder="username" autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false">
+    <input id="siPass" class="siIn" type="password" placeholder="password" autocomplete="current-password">
+    <div id="siErr" class="siErr"></div>
+    <button id="siBtn" class="btn primary" style="width:100%">Sign in</button>
+    <div class="siNote" id="siNote">Connecting…</div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ▼▼▼  PLAN CONFIG — EDIT THIS BLOCK to change the plan  ▼▼▼
+   (kept inline so the app is one self-contained file)
+   ============================================================ */
+window.PLAN = {
+  childName: "Aria",
+  startDate: "2026-06-25",      // first day
+  endDate:   "2026-09-07",      // Labor Day 2026
+  restDay:   0,                 // 0 = Sunday off
+  parentPin: "2468",            // change me
+  hindiUrl:  "https://cksainia.github.io/hindi-garden/",
+  goals: { booksTarget: 50 },
+  tracks: [
+    { id:"reading", icon:"📚", label:"Reading",         target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
+    { id:"beast",   icon:"🧮", label:"Beast Academy",   target:"25 min",         kind:"task",     core:true,  cadence:"daily" },
+    { id:"journal", icon:"✍️", label:"Journaling",      target:"15 min",         kind:"task",     core:true,  cadence:"daily" },
+    { id:"hindi",   icon:"🪷", label:"Hindi Slayer",    target:"Earn 2 ⭐",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+    { id:"ixl",     icon:"📊", label:"IXL (Math + ELA)",target:"~20 min",        kind:"task",     core:true,  cadence:"daily" },
+    { id:"khan",    icon:"➕", label:"Khan Grade 4",     target:"15 min",         kind:"task",     core:false, cadence:{ perWeek:3 } },
+  ],
+  books: [
+    // Amulet
+    { id:"b4", series:"Amulet", title:"The Stonekeeper", author:"Kazu Kibuishi", status:"unread" },
+    { id:"b5", series:"Amulet", title:"The Stonekeeper's Curse", author:"Kazu Kibuishi", status:"unread" },
+    { id:"b6", series:"Amulet", title:"The Cloud Searchers", author:"Kazu Kibuishi", status:"unread" },
+    { id:"b7", series:"Amulet", title:"The Last Council", author:"Kazu Kibuishi", status:"unread" },
+    { id:"b8", series:"Amulet", title:"Prince of the Elves", author:"Kazu Kibuishi", status:"unread" },
+    { id:"b44", series:"Amulet", title:"Escape From Lucien", author:"Kazu Kibuishi", status:"unread" },
+    { id:"b1", series:"Amulet", title:"Firelight", author:"Kazu Kibuishi", status:"unread" },
+    { id:"b2", series:"Amulet", title:"Supernova", author:"Kazu Kibuishi", status:"unread" },
+    { id:"b3", series:"Amulet", title:"Waverider", author:"Kazu Kibuishi", status:"unread" },
+    // Dog Man
+    { id:"b25", series:"Dog Man", title:"Dog Man", author:"Dav Pilkey", status:"unread" },
+    { id:"b26", series:"Dog Man", title:"Dog Man Unleashed", author:"Dav Pilkey", status:"unread" },
+    { id:"b27", series:"Dog Man", title:"Dog Man: a Tale of Two Kitties", author:"Dav Pilkey", status:"unread" },
+    { id:"b28", series:"Dog Man", title:"Dog Man and Cat Kid", author:"Dav Pilkey", status:"unread" },
+    { id:"b29", series:"Dog Man", title:"Dog Man: Lord of the Fleas", author:"Dav Pilkey", status:"unread" },
+    { id:"b30", series:"Dog Man", title:"Dog Man: Brawl of the Wild", author:"Dav Pilkey", status:"unread" },
+    { id:"b32", series:"Dog Man", title:"Fetch-22", author:"Dav Pilkey", status:"unread" },
+    { id:"b33", series:"Dog Man", title:"Dog Man: Grime and Punishment", author:"Dav Pilkey", status:"unread" },
+    { id:"b34", series:"Dog Man", title:"Dog Man: Mothering Heights", author:"Dav Pilkey", status:"unread" },
+    { id:"b36", series:"Dog Man", title:"Dog Man: Twenty Thousand Fleas Under the Sea", author:"Dav Pilkey", status:"unread" },
+    { id:"b35", series:"Dog Man", title:"Dog Man: The Scarlet Shedder", author:"Dav Pilkey", status:"unread" },
+    { id:"b38", series:"Dog Man", title:"Dog Man: Big Jim Begins", author:"Dav Pilkey", status:"unread" },
+    { id:"b37", series:"Dog Man", title:"Dog Man: Big Jim Believes", author:"Dav Pilkey", status:"unread" },
+    { id:"b31", series:"Dog Man", title:"Dog Man: For Whom the Ball Rolls", author:"Dav Pilkey", status:"unread" },
+    // Cat Kid Comic Club
+    { id:"b39", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club #2", author:"Dav Pilkey", status:"unread" },
+    { id:"b40", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club #3: On Purpose", author:"Dav Pilkey", status:"unread" },
+    { id:"b41", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club: Collaborations", author:"Dav Pilkey", status:"unread" },
+    { id:"b42", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club: Influencers", author:"Dav Pilkey", status:"unread" },
+    { id:"b43", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club", author:"Dav Pilkey", status:"unread" },
+    // The Baby-Sitters Club
+    { id:"b9", series:"The Baby-Sitters Club", title:"Kristy's Great Idea", author:"Ann M. Martin", status:"unread" },
+    { id:"b10", series:"The Baby-Sitters Club", title:"The Truth about Stacey", author:"Ann M. Martin", status:"unread" },
+    { id:"b11", series:"The Baby-Sitters Club", title:"Mary Anne Saves the Day", author:"Ann M. Martin", status:"unread" },
+    { id:"b12", series:"The Baby-Sitters Club", title:"Claudia and Mean Janine", author:"Ann M. Martin", status:"unread" },
+    { id:"b13", series:"The Baby-Sitters Club", title:"Dawn and the Impossible Three", author:"Ann M. Martin", status:"unread" },
+    { id:"b14", series:"The Baby-Sitters Club", title:"Kristy's Big Day", author:"Ann M. Martin", status:"unread" },
+    { id:"b15", series:"The Baby-Sitters Club", title:"Boy-Crazy Stacey", author:"Ann M. Martin", status:"unread" },
+    // Magic Tree House — Chapter Books #1-28 (ordered, the reading ladder)
+    { id:"mth1",  series:"Magic Tree House (Chapter Books)", title:"#1: Dinosaurs Before Dark", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth2",  series:"Magic Tree House (Chapter Books)", title:"#2: The Knight at Dawn", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth3",  series:"Magic Tree House (Chapter Books)", title:"#3: Mummies in the Morning", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth4",  series:"Magic Tree House (Chapter Books)", title:"#4: Pirates Past Noon", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth5",  series:"Magic Tree House (Chapter Books)", title:"#5: Night of the Ninjas", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth6",  series:"Magic Tree House (Chapter Books)", title:"#6: Afternoon on the Amazon", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth7",  series:"Magic Tree House (Chapter Books)", title:"#7: Sunset of the Sabertooth", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth8",  series:"Magic Tree House (Chapter Books)", title:"#8: Midnight on the Moon", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth9",  series:"Magic Tree House (Chapter Books)", title:"#9: Dolphins at Daybreak", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth10", series:"Magic Tree House (Chapter Books)", title:"#10: Ghost Town at Sundown", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth11", series:"Magic Tree House (Chapter Books)", title:"#11: Lions at Lunchtime", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth12", series:"Magic Tree House (Chapter Books)", title:"#12: Polar Bears Past Bedtime", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth13", series:"Magic Tree House (Chapter Books)", title:"#13: Vacation Under the Volcano", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth14", series:"Magic Tree House (Chapter Books)", title:"#14: Day of the Dragon King", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth15", series:"Magic Tree House (Chapter Books)", title:"#15: Viking Ships at Sunrise", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth16", series:"Magic Tree House (Chapter Books)", title:"#16: Hour of the Olympics", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth17", series:"Magic Tree House (Chapter Books)", title:"#17: Tonight on the Titanic", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth18", series:"Magic Tree House (Chapter Books)", title:"#18: Buffalo Before Breakfast", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth19", series:"Magic Tree House (Chapter Books)", title:"#19: Tigers at Twilight", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth20", series:"Magic Tree House (Chapter Books)", title:"#20: Dingoes at Dinnertime", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth21", series:"Magic Tree House (Chapter Books)", title:"#21: Civil War on Sunday", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth22", series:"Magic Tree House (Chapter Books)", title:"#22: Revolutionary War on Wednesday", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth23", series:"Magic Tree House (Chapter Books)", title:"#23: Twister on Tuesday", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth24", series:"Magic Tree House (Chapter Books)", title:"#24: Earthquake in the Early Morning", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth25", series:"Magic Tree House (Chapter Books)", title:"#25: Stage Fright on a Summer Night", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth26", series:"Magic Tree House (Chapter Books)", title:"#26: Good Morning, Gorillas", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth27", series:"Magic Tree House (Chapter Books)", title:"#27: Thanksgiving on Thursday", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth28", series:"Magic Tree House (Chapter Books)", title:"#28: High Tide in Hawaii", author:"Mary Pope Osborne", status:"unread" },
+    // Magic Tree House — Graphic Novels (from Libib)
+    { id:"b18", series:"Magic Tree House (Graphic Novels)", title:"Dinosaurs Before Dark", author:"Mary Pope Osborne", status:"unread" },
+    { id:"b19", series:"Magic Tree House (Graphic Novels)", title:"The Knight at Dawn", author:"Mary Pope Osborne", status:"unread" },
+    { id:"b20", series:"Magic Tree House (Graphic Novels)", title:"Mummies in the Morning", author:"Mary Pope Osborne", status:"unread" },
+    { id:"b21", series:"Magic Tree House (Graphic Novels)", title:"Night of the Ninjas", author:"Mary Pope Osborne", status:"unread" },
+    { id:"b22", series:"Magic Tree House (Graphic Novels)", title:"Afternoon on the Amazon", author:"Mary Pope Osborne", status:"unread" },
+    { id:"b23", series:"Magic Tree House (Graphic Novels)", title:"Sunset of the Sabertooth", author:"Mary Pope Osborne", status:"unread" },
+    { id:"b24", series:"Magic Tree House (Graphic Novels)", title:"Midnight on the Moon", author:"Mary Pope Osborne", status:"unread" },
+    // Wings of Fire
+    { id:"b17", series:"Wings of Fire", title:"Wings of Fire", author:"Tui T. Sutherland", status:"unread" },
+    // Diary of a Wimpy Kid
+    { id:"b16", series:"Diary of a Wimpy Kid", title:"Partypooper", author:"Jeff Kinney", status:"unread" },
+  ],
+
+  /* BEAST ACADEMY — Level 3, 12 chapters (3A–3D).
+     Titles pre-filled from standard BA3 sequence (edit if yours differ).
+     Add each chapter's `lessons` as you upload it. g:true = comic guide, t:true = chapter test.
+     Seed below marks Ch1 done + Ch2 done through "Identify the Number". */
+  beastChapters: [
+    /* Chapters 1-5 rebuilt from her actual BA progress reports (authoritative: no comic guides, exact names). */
+    { num:1,  title:"Shapes", lessons:[
+        { n:"Angles" }, { n:"Triangles and Angles" }, { n:"Triangles and Sides" }, { n:"Classifying Triangles 1" },
+        { n:"Classifying Triangles 2" }, { n:"Rubber Band Triangles" }, { n:"Name the Triangle" }, { n:"Counting Triangles" },
+        { n:"Quadrilaterals 1" }, { n:"Quadrilaterals 2" }, { n:"Quadrilaterals 3" }, { n:"Drawing Quadrilaterals" },
+        { n:"Counting Quadrilaterals" }, { n:"More Polygons" }, { n:"Diagonals" }, { n:"Polyominoes" },
+        { n:"Toothpick Puzzles" }, { n:"Connect the Critters" }, { n:"Test", t:true },
+    ] },
+    { num:2,  title:"Skip-Counting", lessons:[
+        { n:"Skip-Counting Basics" }, { n:"Counting Critters" }, { n:"Gumball Art" }, { n:"Hundred Charts 1" },
+        { n:"Hundred Charts 2" }, { n:"Identify the Number" }, { n:"Continue the Pattern" }, { n:"Complete the Pattern" },
+        { n:"Maze Escape" }, { n:"Word Problems 1" }, { n:"Skip-Counting Partitions" }, { n:"Word Problems 2" },
+        { n:"Balancing Weights 1" }, { n:"Balancing Weights 2" }, { n:"Skip-Counting Crosswords" }, { n:"Test", t:true },
+    ] },
+    { num:3,  title:"Perimeter & Area", lessons:[
+        { n:"Perimeter Basics" }, { n:"Regular Polygons" }, { n:"Rectangle Perimeter" }, { n:"Rectilinear Perimeter 1" },
+        { n:"Rectilinear Perimeter 2" }, { n:"Perimeter Review" }, { n:"Missing Side Lengths" }, { n:"Drawing Rectangles" },
+        { n:"Word Problems" }, { n:"Joining Shapes" }, { n:"Possible Distances" }, { n:"The Triangle Inequality" },
+        { n:"Area Basics" }, { n:"Rectangle Area" }, { n:"Rectilinear Shape Area" }, { n:"Rectangle Grids" },
+        { n:"Fence 'Em In!" }, { n:"Test", t:true },
+    ] },
+    { num:4,  title:"Multiplication", lessons:[
+        { n:"Repeated Addition" }, { n:"Multiplication Chart" }, { n:"Rope Climb" }, { n:"Twisted Times Tables" },
+        { n:"Perimeter and Area" }, { n:"Word Problems 1" }, { n:"Multiples of 10" }, { n:"Snowball Game" },
+        { n:"Block Mountains" }, { n:"Rearranging Products" }, { n:"Completing Equations" }, { n:"Gumball Bots" },
+        { n:"Building Combobots" }, { n:"Word Problems 2" }, { n:"Multiplication Game" }, { n:"Test", t:true },
+    ] },
+    { num:5,  title:"Perfect Squares", lessons:[
+        { n:"Squaring Numbers" }, { n:"Perfect Square Bubbles" }, { n:"Perimeter and Area" }, { n:"Numbers Ending in 5" },
+        { n:"Neighboring Squares" }, { n:"Sequences of Squares" }, { n:"Multiplying Close Numbers" }, { n:"Rearranging Number Cards" },
+        { n:"Word Problems 1" }, { n:"Dissected Rectangles" }, { n:"Arranging Squares" }, { n:"Adding Squares" },
+        { n:"Squares From Rectangles" }, { n:"Clever Computations" }, { n:"Word Problems 2" }, { n:"Test", t:true },
+    ] },
+    { num:6,  title:"The Distributive Property", lessons:[
+        { n:"Order of Operations 1" }, { n:"Order of Operations 2" }, { n:"Missing Parentheses 1" },
+        { n:"Missing Parentheses 2" }, { n:"Rectangle Area" }, { n:"Distributing 1" }, { n:"Distributing 2" },
+        { n:"Factoring 1" }, { n:"Factoring 2" }, { n:"Math with Coins" }, { n:"Data Tables" },
+        { n:"Combining Rectangles" }, { n:"Missing Digits 1" }, { n:"Missing Digits 2" }, { n:"Word Problems" },
+        { n:"Clever Computations" }, { n:"Test", t:true },
+    ] },
+    { num:7,  title:"Variables", lessons:[
+        { n:"Introduction to Variables" }, { n:"Evaluating Expressions 1" }, { n:"Evaluating Expressions 2" },
+        { n:"Simplifying Expressions" }, { n:"Describing Patterns" }, { n:"Expressions in Geometry" },
+        { n:"Hidden Message" }, { n:"Region Sums" }, { n:"Balance Scales" }, { n:"Translating Sentences 1" },
+        { n:"Translating Sentences 2" }, { n:"Word Problems" }, { n:"Circle Sums" }, { n:"Tricky Balance Scales" },
+        { n:"Two Equations" }, { n:"Test", t:true },
+    ] },
+    { num:8,  title:"Division", lessons:[
+        { n:"Grouping" }, { n:"Division Practice 1" }, { n:"Division Practice 2" }, { n:"Word Problems 1" },
+        { n:"Reading Tables" }, { n:"Cross-Number Puzzles" }, { n:"Multiples of Ten" }, { n:"Frozen Zeros" },
+        { n:"Long Division Foundations" }, { n:"Long Division" }, { n:"Perimeter and Area" }, { n:"Clever Computations" },
+        { n:"Dividing Sums" }, { n:"Dividing Products" }, { n:"Overlapping Circles" }, { n:"Missing Numbers" },
+        { n:"Word Problems 2" }, { n:"Division Networks" }, { n:"Test", t:true },
+    ] },
+    { num:9,  title:"Measurement", lessons:[
+        { n:"Units of Length" }, { n:"Measuring Length" }, { n:"Units of Weight" }, { n:"Balancing Critters" },
+        { n:"Units of Volume" }, { n:"Measuring Volume" }, { n:"Measuring Temperature" }, { n:"Money" },
+        { n:"Reading a Clock" }, { n:"Units of Time" }, { n:"Including Units" }, { n:"Choosing Units 1" },
+        { n:"Choosing Units 2" }, { n:"Estimates" }, { n:"Word Problems" }, { n:"Measurement Grab Bag" }, { n:"Test", t:true },
+    ] },
+    { num:10, title:"Fractions", lessons:[
+        { n:"Comparing Unit Fractions" }, { n:"Whole-Number Fractions" }, { n:"Locating Fractions" }, { n:"Equivalent Fractions 1" },
+        { n:"Between Whole Numbers" }, { n:"Mixed Numbers" }, { n:"Conversion" }, { n:"Parts of a Whole" },
+        { n:"Equivalent Fractions 2" }, { n:"Simplest Form" }, { n:"Fractions on a Ruler" }, { n:"Division" },
+        { n:"Comparing and Ordering 1" }, { n:"Comparing and Ordering 2" }, { n:"Comparing and Ordering 3" },
+        { n:"Abstract Art" }, { n:"Fractions Grab Bag" }, { n:"Test", t:true },
+    ] },
+    { num:11, title:"Estimation", lessons:[
+        { n:"Exact or Estimate" }, { n:"Rounding Whole Numbers" }, { n:"Word Problems" }, { n:"Rounding Fractions" },
+        { n:"Computing Estimates" }, { n:"Quick Checks 1" }, { n:"Over or Underestimating" }, { n:"Estimating Subtraction" },
+        { n:"> or <" }, { n:"Estimating Division" }, { n:"Quick Checks 2" }, { n:"Between" },
+        { n:"Ordering Estimates" }, { n:"Money" }, { n:"Eyeball Estimates" }, { n:"Test", t:true },
+    ] },
+    { num:12, title:"Area", lessons:[
+        { n:"Square Units 1" }, { n:"Square Units 2" }, { n:"Adding Areas" }, { n:"Subtracting Areas" },
+        { n:"Shikaku" }, { n:"Right Triangles 1" }, { n:"Right Triangles 2" }, { n:"Dot Grids" },
+        { n:"Triangles 1" }, { n:"Triangles 2" }, { n:"Area Match" }, { n:"Different Units 1" },
+        { n:"Different Units 2" }, { n:"Word Problems" }, { n:"Fillominos" }, { n:"Test", t:true },
+    ] },
+  ],
+};
+/* ▲▲▲  END PLAN CONFIG  ▲▲▲ */
+
+/* ============================================================
+   STORAGE LAYER  (swap to Firebase later — same get/set/save)
+   ============================================================ */
+const SAVE_KEY = "ariaTracker.v1";
+const SYNC_FIELDS = ["completions","books","beast","beastSeed","booksSeed"]; // what lives in the cloud doc
+const Store = {
+  state: null,
+  load(){
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch(e){}
+    if (raw){ try { this.state = JSON.parse(raw); } catch(e){ this.state = null; } }
+    if (!this.state) this.state = { completions:{}, books:null, parentMode:false };
+    this.migrate();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.state)); } catch(e){}
+    return this.state;
+  },
+  // idempotent seeds/migrations (versioned). Returns true if a seed version advanced.
+  migrate(){
+    let changed = false;
+    if (!this.state.completions) this.state.completions = {};
+    // shelf from plan (preserves statuses by id across refreshes)
+    if (!this.state.books || this.state.booksSeed !== 3){
+      const prev = {}; (this.state.books||[]).forEach(b=>{ prev[b.id]=b.status; });
+      this.state.books = JSON.parse(JSON.stringify(PLAN.books)).map(b=> prev[b.id] ? Object.assign(b,{status:prev[b.id]}) : b);
+      ["b4","b5","b6","b7","b8","b44","b1"].forEach(id=>{ const bk=this.state.books.find(x=>x.id===id); if(bk) bk.status="finished"; }); // Amulet #1-7
+      this.state.booksSeed = 3; changed = true;
+    }
+    // Beast progress from her real BA reports
+    if (this.state.beastSeed !== 3){
+      this.state.beast = { items:{}, chap:{} };
+      Object.assign(this.state.beast.items, {
+        "1:0":"2026-05-27","1:1":"2026-05-27","1:2":"2026-05-28","1:3":"2026-05-28","1:4":"2026-05-30",
+        "1:5":"2026-06-03","1:6":"2026-06-03","1:7":"2026-06-04","1:8":"2026-06-16","1:9":"2026-06-02",
+        "1:10":"2026-06-01","1:11":"2026-06-01","1:12":"2026-06-07","1:13":"2026-06-02","1:14":"2026-06-07",
+        "1:15":"2026-06-07","1:16":"2026-06-09","1:17":"2026-06-16","1:18":"2026-06-02",
+        "2:0":"2026-06-02","2:1":"2026-06-02","2:2":"2026-06-02",
+        "2:3":"2026-06-17","2:4":"2026-06-17","2:5":"2026-06-23",
+      });
+      this.state.beastSeed = 3; changed = true;
+    }
+    return changed;
+  },
+  save(){
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.state)); } catch(e){}
+    if (window.AriaSync) window.AriaSync.pushCloud();   // writes to Firestore (parent only, enforced inside)
+  },
+  // the subset of state that syncs to the cloud
+  syncData(){ const o={}; SYNC_FIELDS.forEach(k=>{ if(this.state[k]!==undefined) o[k]=this.state[k]; }); return o; },
+  // adopt a cloud snapshot (synced fields only — keeps local UI fields like parentMode)
+  applyCloud(data){
+    SYNC_FIELDS.forEach(k=>{ if(data[k]!==undefined) this.state[k]=data[k]; });
+    const m = this.migrate();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.state)); } catch(e){}
+    return m;
+  },
+};
+window.Store = Store;
+
+/* ============================================================
+   DATE HELPERS  (all local)
+   ============================================================ */
+function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function parseYMD(s){ const [y,m,dd]=s.split("-").map(Number); return new Date(y,m-1,dd); }
+function todayKey(){ return ymd(new Date()); }
+function isRestDay(d){ return d.getDay() === PLAN.restDay; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function prettyDate(s){ return parseYMD(s).toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"}); }
+function inWindow(key){ return key >= PLAN.startDate && key <= PLAN.endDate; }
+
+/* list of active (non-rest, in-window) day keys from start up to and including `upTo` */
+function activeDaysUpTo(upToKey){
+  const out=[]; let d=parseYMD(PLAN.startDate); const end=parseYMD(upToKey);
+  while (d<=end){ const k=ymd(d); if (inWindow(k) && !isRestDay(d)) out.push(k); d=addDays(d,1); }
+  return out;
+}
+
+/* ============================================================
+   CORE LOGIC
+   ============================================================ */
+const dailyTracks = () => PLAN.tracks.filter(t=>t.cadence==="daily");
+const coreDailyTracks = () => PLAN.tracks.filter(t=>t.cadence==="daily" && t.core);
+
+function isDone(dayKey, trackId){
+  const day = Store.state.completions[dayKey];
+  return !!(day && day[trackId]);
+}
+function setDone(dayKey, trackId, val){
+  if (!Store.state.completions[dayKey]) Store.state.completions[dayKey] = {};
+  Store.state.completions[dayKey][trackId] = val;
+  if (!val) delete Store.state.completions[dayKey][trackId];
+  Store.save();
+}
+
+/* a day's quota is "met" when all CORE daily tracks are done */
+function dayMet(dayKey){
+  return coreDailyTracks().every(t=>isDone(dayKey,t.id));
+}
+
+/* streak = consecutive met active-days ending yesterday/today */
+function computeStreak(){
+  const days = activeDaysUpTo(todayKey());
+  let streak=0;
+  for (let i=days.length-1;i>=0;i--){
+    const k=days[i];
+    if (k===todayKey() && !dayMet(k)) continue; // today not done yet doesn't break streak
+    if (dayMet(k)) streak++; else break;
+  }
+  return streak;
+}
+function daysCrushed(){ return activeDaysUpTo(todayKey()).filter(dayMet).length; }
+
+/* backlog: missed CORE daily tasks on past active days (not today) */
+function computeBacklog(){
+  const days = activeDaysUpTo(todayKey()).filter(k=>k!==todayKey());
+  const byTrack = {};
+  days.forEach(k=>{
+    coreDailyTracks().forEach(t=>{
+      if (!isDone(k,t.id)){ (byTrack[t.id]=byTrack[t.id]||[]).push(k); }
+    });
+  });
+  return byTrack; // { trackId: [dayKeys...] }
+}
+
+function booksFinished(){ return Store.state.books.filter(b=>b.status==="finished").length; }
+
+/* ---- Beast Academy ---- */
+function beastChap(num){ return PLAN.beastChapters.find(c=>c.num===num); }
+function beastItemDone(num,idx){ return !!(Store.state.beast.items[num+":"+idx]); }
+function setBeastItem(num,idx,val){
+  const k=num+":"+idx;
+  if (val) Store.state.beast.items[k]=todayKey(); else delete Store.state.beast.items[k]; // stamp the day done
+  Store.save();
+}
+function setBeastChap(num,val){ if(val) Store.state.beast.chap[num]=true; else delete Store.state.beast.chap[num]; Store.save(); }
+function chapCountable(ch){ return ch.lessons.filter(l=>!l.g).length; } // guides (comics) don't count
+function chapLessonsDone(ch){ let n=0; ch.lessons.forEach((l,i)=>{ if(!l.g && beastItemDone(ch.num,i)) n++; }); return n; }
+function chapComplete(ch){
+  if (chapCountable(ch)) return ch.lessons.every((l,i)=> l.g || beastItemDone(ch.num,i));
+  return !!Store.state.beast.chap[ch.num];
+}
+function chaptersComplete(){ return PLAN.beastChapters.filter(chapComplete).length; }
+function currentChapter(){ return PLAN.beastChapters.find(c=>!chapComplete(c)) || PLAN.beastChapters[PLAN.beastChapters.length-1]; }
+
+const BEAST_EST = 20; // estimated lessons for chapters not yet detailed (for pacing)
+function activeDaysFrom(fromKey){
+  let d=parseYMD(fromKey>PLAN.startDate?fromKey:PLAN.startDate); const end=parseYMD(PLAN.endDate); let n=0;
+  while(d<=end){ const k=ymd(d); if(inWindow(k)&&!isRestDay(d)) n++; d=addDays(d,1); }
+  return n;
+}
+function beastRemainingLessons(){
+  let rem=0;
+  PLAN.beastChapters.forEach(ch=>{
+    if (chapCountable(ch)) ch.lessons.forEach((l,i)=>{ if(!l.g && !beastItemDone(ch.num,i)) rem++; });
+    else if (!chapComplete(ch)) rem += BEAST_EST;
+  });
+  return rem;
+}
+function beastDailyTarget(){
+  const days=activeDaysFrom(todayKey()), rem=beastRemainingLessons();
+  return days>0 ? Math.max(1, Math.ceil(rem/days)) : rem;
+}
+function beastDoneToday(){
+  const t=todayKey(); let n=0;
+  for (const k in Store.state.beast.items){ if(Store.state.beast.items[k]===t) n++; }
+  return n;
+}
+
+/* ============================================================
+   VIEWS
+   ============================================================ */
+let view = "today";
+let editDay = todayKey();   // which day parent is editing
+let beastOpenChapter = null; // which chapter is expanded in the Beast view
+
+function track(id){ return PLAN.tracks.find(t=>t.id===id); }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function renderHeader(){
+  document.getElementById("hName").textContent = PLAN.childName + "'s Summer";
+  document.getElementById("hDate").textContent = prettyDate(todayKey());
+  document.getElementById("streak").textContent = computeStreak();
+  document.getElementById("starsTotal").textContent = daysCrushed();
+  document.getElementById("booksDone").textContent = booksFinished();
+  document.getElementById("booksGoal").textContent = PLAN.goals.booksTarget;
+
+  const core = coreDailyTracks();
+  const done = core.filter(t=>isDone(todayKey(),t.id)).length;
+  document.getElementById("qCount").textContent = done+" / "+core.length;
+  const pct = core.length ? Math.round(done/core.length*100) : 0;
+  document.getElementById("qFill").style.width = pct+"%";
+  const msg = done===0 ? "Let's get started! ✨"
+            : done<core.length ? `Great going — ${core.length-done} to go!`
+            : "🎉 Quota crushed! You did everything today!";
+  document.getElementById("qMsg").textContent = msg;
+
+  document.getElementById("parentBtn").classList.toggle("on", Store.state.parentMode);
+  document.getElementById("parentBtn").textContent = Store.state.parentMode ? "👤 Parent ON" : "👤 Parent";
+}
+
+function renderToday(){
+  const editing = Store.state.parentMode;
+  const d = parseYMD(editDay);
+  let html = "";
+
+  if (editing){
+    html += `<div class="editHint">✏️ Parent mode — tap a circle to mark done. Reviewing: <b>${prettyDate(editDay)}</b></div>`;
+    html += `<div class="dayNav">
+      <button id="dPrev">‹</button>
+      <div class="lbl">${prettyDate(editDay)}</div>
+      <button id="dNext">›</button></div>`;
+  }
+
+  if (isRestDay(d)){
+    html += `<div class="restCard"><div class="big">🌴</div>
+      <h3 style="margin:8px 0 4px">Rest Day!</h3>
+      <p style="color:var(--muted);margin:0">Sundays are sacred. Recharge, read for fun, play. See you tomorrow! 💚</p></div>`;
+    document.getElementById("main").innerHTML = html;
+    if (editing) wireDayNav();
+    return;
+  }
+
+  // backlog (only on today's real view, not when scrolling past days)
+  if (editDay===todayKey()){
+    const bl = computeBacklog();
+    const ids = Object.keys(bl);
+    if (ids.length){
+      html += `<div class="backlog"><h3>⏰ Catch-up from missed days</h3><div class="bchips">`;
+      ids.forEach(id=>{ const t=track(id); html += `<span class="bchip">${t.icon} ${t.label} ×${bl[id].length}</span>`; });
+      html += `</div></div>`;
+    }
+  }
+
+  html += `<h2 class="sec">${editDay===todayKey()?"Today's tasks":"Tasks"}</h2>`;
+  dailyTracks().forEach(t=>{
+    const done = isDone(editDay,t.id);
+    const checkCls = "check"+(done?" done":"")+(editing?" editable":"");
+    let sub = t.target, extra = "";
+    if (t.id==="beast"){
+      const ch=currentChapter(), tgt=beastDailyTarget(), today=beastDoneToday();
+      sub = `Ch ${ch.num}: ${ch.title} · 🎯 ${today}/${tgt} lessons today`;
+      extra = `<button class="goBtn" data-beast="1">Lessons ▸</button>`;
+    } else if (t.kind==="external"){
+      extra = `<a class="goBtn" href="${t.link}" target="_blank" rel="noopener">Open ▸</a>`;
+    }
+    html += `<div class="task${done?" done":""}">
+      <div class="tIcon">${t.icon}</div>
+      <div class="tBody">
+        <div class="tLabel">${t.label} <span class="tag ${t.core?"core":"opt"}">${t.core?"CORE":"BONUS"}</span></div>
+        <div class="tTarget">${sub}</div>
+      </div>
+      ${extra}
+      <div class="${checkCls}" data-toggle="${t.id}">${done?"✓":""}</div>
+    </div>`;
+  });
+
+  // weekly bonus tracks (e.g. Khan 3x/week)
+  const weekly = PLAN.tracks.filter(t=>t.cadence && t.cadence.perWeek);
+  if (weekly.length){
+    html += `<h2 class="sec">This week's bonus</h2>`;
+    weekly.forEach(t=>{
+      const n = weekCount(t.id);
+      const goal = t.cadence.perWeek;
+      const done = isDone(editDay,t.id);
+      const checkCls = "check"+(done?" done":"")+(editing?" editable":"");
+      html += `<div class="task${done?" done":""}">
+        <div class="tIcon">${t.icon}</div>
+        <div class="tBody">
+          <div class="tLabel">${t.label} <span class="tag opt">${n}/${goal} this week</span></div>
+          <div class="tTarget">${t.target}</div>
+        </div>
+        <div class="${checkCls}" data-toggle="${t.id}">${done?"✓":""}</div>
+      </div>`;
+    });
+  }
+
+  document.getElementById("main").innerHTML = html;
+  if (editing) { wireDayNav(); wireToggles(); }
+  const bb=document.querySelector("[data-beast]");
+  if (bb) bb.onclick=()=>{ view="beast"; beastOpenChapter=null; render(); };
+}
+
+function weekStartKey(refKey){
+  const d = parseYMD(refKey); const dow=d.getDay();
+  const monOffset = (dow===0?-6:1-dow); // week starts Monday
+  return ymd(addDays(d,monOffset));
+}
+function weekCount(trackId){
+  const start = parseYMD(weekStartKey(editDay));
+  let n=0;
+  for (let i=0;i<7;i++){ const k=ymd(addDays(start,i)); if (isDone(k,trackId)) n++; }
+  return n;
+}
+
+function wireToggles(){
+  document.querySelectorAll("[data-toggle]").forEach(el=>{
+    el.addEventListener("click",()=>{
+      const id=el.getAttribute("data-toggle");
+      const was=isDone(editDay,id);
+      const wasMet = editDay===todayKey() && dayMet(editDay);
+      setDone(editDay,id,!was);
+      const nowMet = editDay===todayKey() && dayMet(editDay);
+      renderHeader(); renderToday();
+      if (!wasMet && nowMet) celebrate();
+    });
+  });
+}
+function wireDayNav(){
+  const prev=document.getElementById("dPrev"), next=document.getElementById("dNext");
+  if (prev) prev.onclick=()=>{ const k=ymd(addDays(parseYMD(editDay),-1)); if (inWindow(k)){ editDay=k; renderToday(); } };
+  if (next) next.onclick=()=>{ const k=ymd(addDays(parseYMD(editDay),1)); if (k<=todayKey() && inWindow(k)){ editDay=k; renderToday(); } };
+}
+
+function renderBooks(){
+  const editing = Store.state.parentMode;
+  const fin = booksFinished();
+  const pct = Math.min(100, Math.round(fin/PLAN.goals.booksTarget*100));
+  let html = `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink)">
+      <div class="qtop"><span>📚 Books finished this summer</span><span>${fin} / ${PLAN.goals.booksTarget}</span></div>
+      <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${pct}%"></div></div>
+      <div class="qmsg" style="color:var(--muted)">${Store.state.books.length} books on her shelf${editing?" · tap a book's menu to update":""}</div>
+    </div>`;
+
+  // group by series, preserving config order
+  const groups=[], map={};
+  Store.state.books.forEach(b=>{ const s=b.series||"Other"; if(!map[s]){map[s]=[];groups.push(s);} map[s].push(b); });
+  groups.forEach(s=>{
+    const arr=map[s], f=arr.filter(b=>b.status==="finished").length;
+    html += `<h2 class="sec">${esc(s)} · ${f}/${arr.length}</h2>`;
+    arr.forEach(b=>{
+      const right = editing
+        ? `<select class="statusSel" data-book="${b.id}">
+             <option value="unread"${b.status==="unread"?" selected":""}>To read</option>
+             <option value="reading"${b.status==="reading"?" selected":""}>Reading</option>
+             <option value="finished"${b.status==="finished"?" selected":""}>Finished ✓</option>
+           </select>`
+        : `<span class="statusPill st-${b.status}">${b.status==="finished"?"Finished ✓":b.status==="reading"?"Reading":"To read"}</span>`;
+      const cover = b.status==="finished" ? "background:var(--green)" : b.status==="reading" ? "background:linear-gradient(160deg,#E8A020,#D97706)" : "";
+      html += `<div class="book">
+        <div class="bCover" style="${cover}">${b.status==="finished"?"✓":"📖"}</div>
+        <div class="bInfo"><div class="bTitle">${esc(b.title)}</div><div class="bAuthor">${esc(b.author||"")}</div></div>
+        ${right}
+      </div>`;
+    });
+  });
+  document.getElementById("main").innerHTML = html;
+  if (editing){
+    document.querySelectorAll("[data-book]").forEach(sel=>{
+      sel.addEventListener("change",()=>{
+        const id=sel.getAttribute("data-book");
+        const wasFin = booksFinished();
+        Store.state.books.find(x=>x.id===id).status = sel.value;
+        Store.save(); renderHeader(); renderBooks();
+        if (booksFinished()>wasFin) celebrate();
+      });
+    });
+  }
+}
+
+function renderProgress(){
+  const totalActive = activeDaysUpTo(PLAN.endDate).length;
+  const elapsed = activeDaysUpTo(todayKey()).length;
+  const crushed = daysCrushed();
+  const rate = elapsed? Math.round(crushed/elapsed*100):0;
+  let html = `<h2 class="sec">Aria's summer so far</h2>
+    <div class="stats">
+      <div class="stat"><div class="n">${computeStreak()}</div><div class="l">🔥 Current streak (days)</div></div>
+      <div class="stat"><div class="n">${crushed}</div><div class="l">⭐ Days quota crushed</div></div>
+      <div class="stat"><div class="n">${rate}%</div><div class="l">📊 Quota hit-rate</div></div>
+      <div class="stat"><div class="n">${booksFinished()}</div><div class="l">📚 Books finished</div></div>
+      <div class="stat"><div class="n">${elapsed}</div><div class="l">📅 Learning days done</div></div>
+      <div class="stat"><div class="n">${totalActive-elapsed}</div><div class="l">⏳ Days left to Labor Day</div></div>
+    </div>
+    <h2 class="sec">By subject (this summer)</h2>`;
+  dailyTracks().forEach(t=>{
+    let n=0; activeDaysUpTo(todayKey()).forEach(k=>{ if(isDone(k,t.id)) n++; });
+    const pct = elapsed? Math.round(n/elapsed*100):0;
+    html += `<div class="task">
+      <div class="tIcon">${t.icon}</div>
+      <div class="tBody"><div class="tLabel">${t.label}</div>
+        <div class="qbar" style="background:var(--soft);margin-top:8px"><div class="qfill" style="width:${pct}%"></div></div></div>
+      <div style="font-weight:800;color:var(--teal)">${n}<span style="color:var(--muted);font-weight:600">/${elapsed}</span></div>
+    </div>`;
+  });
+  document.getElementById("main").innerHTML = html;
+}
+
+function renderBeast(){
+  const editing = Store.state.parentMode;
+  if (beastOpenChapter==null) beastOpenChapter = currentChapter().num;
+  const totalCh = PLAN.beastChapters.length, doneCh = chaptersComplete();
+
+  let html = `<div style="display:flex;align-items:center;gap:10px;margin:8px 0 2px">
+      <button id="beastBack" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer;font-family:inherit">‹ Back</button>
+      <div style="font-weight:800;font-size:17px">🧮 Beast Academy</div></div>`;
+  html += `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink)">
+      <div class="qtop"><span>Chapters complete this summer</span><span>${doneCh} / ${totalCh}</span></div>
+      <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${Math.round(doneCh/totalCh*100)}%"></div></div>
+    </div>`;
+  const tgt=beastDailyTarget(), today=beastDoneToday(), rem=beastRemainingLessons(), days=activeDaysFrom(todayKey());
+  html += `<div class="editHint" style="background:var(--tealL);border-color:#9fe0d8;color:#065f54">
+      🎯 Auto-pace: aim for <b>${tgt} lesson${tgt>1?'s':''} today</b> · ${today} done · ${rem} left over ${days} learning days</div>`;
+  html += `<h2 class="sec">Tap a chapter to see lessons</h2>`;
+
+  PLAN.beastChapters.forEach(ch=>{
+    const complete=chapComplete(ch), tot=chapCountable(ch), dn=chapLessonsDone(ch), isOpen=ch.num===beastOpenChapter;
+    const pct = tot? Math.round(dn/tot*100) : (complete?100:0);
+    html += `<div class="book" data-chap="${ch.num}" style="cursor:pointer;${isOpen?'border-color:var(--teal);box-shadow:0 0 0 2px var(--tealL)':''}">
+      <div class="bCover" style="background:${complete?'var(--green)':'linear-gradient(160deg,#0D9488,#1E3A8A)'};font-size:16px">${complete?'✓':ch.num}</div>
+      <div class="bInfo"><div class="bTitle">Ch ${ch.num} · ${ch.title}</div>
+        <div class="bAuthor">${tot? dn+"/"+tot+" lessons" : (complete?"Marked complete":"No lessons added yet")}</div></div>
+      <span class="statusPill ${complete?'st-finished':(tot&&dn?'st-reading':'st-unread')}">${complete?'Done':(tot?pct+'%':'—')}</span>
+    </div>`;
+    if (isOpen){
+      if (tot){
+        html += `<div style="margin:-2px 0 12px">`;
+        ch.lessons.forEach((ls,i)=>{
+          if (ls.g){ // comic guide — read-only, not tracked
+            html += `<div class="task" style="padding:8px 12px;margin-bottom:6px;opacity:.75;background:var(--soft);box-shadow:none">
+              <div class="tIcon" style="width:32px;height:32px;font-size:17px;background:#efe9df">📖</div>
+              <div class="tBody"><div class="tLabel" style="font-size:14px;font-weight:600">${esc(ls.n)} <span class="tag opt" style="background:#e8e2d6;color:#8a7e68">GUIDE</span></div></div>
+            </div>`;
+            return;
+          }
+          const d=beastItemDone(ch.num,i);
+          const checkCls="check"+(d?" done":"")+(editing?" editable":"");
+          html += `<div class="task" style="padding:9px 12px;margin-bottom:6px">
+            <div class="tIcon" style="width:32px;height:32px;font-size:17px">${ls.t?"📝":"✏️"}</div>
+            <div class="tBody"><div class="tLabel" style="font-size:14px">${esc(ls.n)}${ls.t?' <span class="tag opt">TEST</span>':''}</div></div>
+            <div class="${checkCls}" data-bitem="${ch.num}:${i}">${d?'✓':''}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      } else {
+        html += `<div class="editHint">📥 No lesson list for this chapter yet — upload its screen and I'll add it.</div>`;
+        if (editing){
+          html += `<div style="margin:-4px 0 12px"><button class="btn ${complete?'ghost':'primary'}" style="max-width:280px" data-chapdone="${ch.num}">${complete?'✓ Marked complete — tap to undo':'Mark Chapter '+ch.num+' complete'}</button></div>`;
+        }
+      }
+    }
+  });
+
+  document.getElementById("main").innerHTML = html;
+  document.getElementById("beastBack").onclick=()=>{ view="today"; render(); };
+  document.querySelectorAll("[data-chap]").forEach(el=>{
+    el.addEventListener("click",()=>{
+      const n=+el.getAttribute("data-chap");
+      beastOpenChapter = (beastOpenChapter===n? -1 : n);
+      renderBeast();
+    });
+  });
+  if (editing){
+    document.querySelectorAll("[data-bitem]").forEach(el=>{
+      el.addEventListener("click",e=>{
+        e.stopPropagation();
+        const [n,i]=el.getAttribute("data-bitem").split(":").map(Number);
+        const before=chaptersComplete();
+        setBeastItem(n,i,!beastItemDone(n,i));
+        renderHeader(); renderBeast();
+        if (chaptersComplete()>before) celebrate();
+      });
+    });
+    document.querySelectorAll("[data-chapdone]").forEach(el=>{
+      el.addEventListener("click",e=>{
+        e.stopPropagation();
+        const n=+el.getAttribute("data-chapdone");
+        const before=chaptersComplete();
+        setBeastChap(n,!chapComplete(beastChap(n)));
+        renderHeader(); renderBeast();
+        if (chaptersComplete()>before) celebrate();
+      });
+    });
+  }
+}
+
+function render(){
+  renderHeader();
+  if (view==="today") renderToday();
+  else if (view==="books") renderBooks();
+  else if (view==="beast") renderBeast();
+  else renderProgress();
+}
+
+/* ============================================================
+   CELEBRATION
+   ============================================================ */
+function celebrate(){
+  const c=document.getElementById("confetti");
+  const colors=["#E8A020","#0D9488","#E8503A","#7C3AED","#059669"];
+  c.innerHTML="";
+  for(let i=0;i<70;i++){
+    const s=document.createElement("i");
+    s.style.left=Math.random()*100+"vw";
+    s.style.background=colors[i%colors.length];
+    s.style.animationDuration=(1.4+Math.random()*1.6)+"s";
+    s.style.animationDelay=(Math.random()*.4)+"s";
+    c.appendChild(s);
+  }
+  c.classList.remove("hidden");
+  setTimeout(()=>c.classList.add("hidden"),2600);
+}
+
+/* ============================================================
+   NAV + PARENT MODE
+   ============================================================ */
+document.querySelectorAll("nav button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    view=b.getAttribute("data-view");
+    render();
+  });
+});
+
+const pinModal=document.getElementById("pinModal");
+document.getElementById("parentBtn").addEventListener("click",()=>{
+  if (Store.state.parentMode){ // turn off
+    Store.state.parentMode=false; editDay=todayKey(); Store.save(); render();
+  } else {
+    document.getElementById("pinIn").value=""; pinModal.classList.add("show");
+    setTimeout(()=>document.getElementById("pinIn").focus(),50);
+  }
+});
+document.getElementById("pinCancel").addEventListener("click",()=>pinModal.classList.remove("show"));
+document.getElementById("pinOk").addEventListener("click",tryPin);
+document.getElementById("pinIn").addEventListener("keydown",e=>{ if(e.key==="Enter") tryPin(); });
+function tryPin(){
+  if (document.getElementById("pinIn").value===String(PLAN.parentPin)){
+    Store.state.parentMode=true; editDay=todayKey(); Store.save();
+    pinModal.classList.remove("show"); render();
+  } else {
+    const inp=document.getElementById("pinIn"); inp.value=""; inp.placeholder="❌ try again";
+  }
+}
+
+/* ============================================================
+   AUTH BRIDGE  (called by the Firebase module below)
+   ============================================================ */
+function showSignIn(){ const e=document.getElementById("signin"); if(e) e.classList.remove("hidden"); }
+function hideSignIn(){ const e=document.getElementById("signin"); if(e) e.classList.add("hidden"); }
+function onSignedIn(role){
+  window.ROLE = role;
+  const pb=document.getElementById("parentBtn"); if(pb) pb.style.display = (role==="parent") ? "" : "none";
+  const so=document.getElementById("signoutBtn"); if(so) so.style.display = "";
+  if (role!=="parent") Store.state.parentMode = false;  // Aria is read-only
+  render();
+}
+document.getElementById("signoutBtn").addEventListener("click",()=>{ if(window.AriaSync) window.AriaSync.signOut(); });
+window.showSignIn=showSignIn; window.hideSignIn=hideSignIn; window.onSignedIn=onSignedIn; window.render=render;
+
+/* ============================================================
+   BOOT  (render cached state immediately; sign-in gate sits on top until auth resolves)
+   ============================================================ */
+Store.load();
+Store.state.parentMode=false; // always start in Aria's view
+render();
+</script>
+
+<script type="module">
+/* ============================================================
+   FIREBASE SYNC  (Auth + Firestore, realtime). No build step — CDN ESM.
+   ============================================================ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence }
+  from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, onSnapshot, setDoc }
+  from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDoCkJn-kRXftq6ahPocbwWJiM8GhTjQdU",
+  authDomain: "aria-tracker-c89d3.firebaseapp.com",
+  projectId: "aria-tracker-c89d3",
+  storageBucket: "aria-tracker-c89d3.firebasestorage.app",
+  messagingSenderId: "943653530208",
+  appId: "1:943653530208:web:014a7a7abf4b4ab2627105"
+};
+const PARENT_EMAIL = "chitts@gmail.com";          // <-- must match Firestore Rules + the user you created
+const ARIA_EMAIL   = "aria.gautam01@gmail.com";
+const ALIASES = { aria: ARIA_EMAIL, parent: PARENT_EMAIL };  // kid-friendly usernames
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+const famRef = doc(db, "families", "aria");
+let role = "none", unsub = null;
+
+window.AriaSync = {
+  role: "none",
+  pushCloud(){
+    if (this.role !== "parent") return;                     // only the parent writes
+    setDoc(famRef, Store.syncData(), { merge:true }).catch(e=>console.warn("cloud write failed:", e.message));
+  },
+  signOut(){ signOut(auth); },
+};
+
+function startSync(){
+  if (unsub) return;
+  unsub = onSnapshot(famRef, (snap)=>{
+    if (!snap.exists()){
+      if (role === "parent") setDoc(famRef, Store.syncData()).catch(e=>console.warn(e.message)); // first-run init
+      window.render && window.render();
+      return;
+    }
+    const migrated = Store.applyCloud(snap.data());
+    if (migrated && role === "parent") window.AriaSync.pushCloud();   // push forward any version bump
+    window.render && window.render();
+  }, (err)=> console.warn("snapshot error:", err.message));
+}
+
+onAuthStateChanged(auth, (user)=>{
+  if (!user){ role="none"; window.AriaSync.role="none"; if(unsub){unsub();unsub=null;} window.showSignIn && window.showSignIn(); return; }
+  const em = (user.email||"").toLowerCase();
+  role = em === PARENT_EMAIL.toLowerCase() ? "parent" : "aria";
+  window.AriaSync.role = role;
+  window.hideSignIn && window.hideSignIn();
+  window.onSignedIn && window.onSignedIn(role);
+  startSync();
+});
+
+async function doSignIn(){
+  const u = (document.getElementById("siUser").value||"").trim();
+  const p = document.getElementById("siPass").value||"";
+  const email = u.includes("@") ? u : (ALIASES[u.toLowerCase()] || u);   // "aria" -> her gmail, "parent" -> yours
+  const err = document.getElementById("siErr"); err.textContent="";
+  const btn = document.getElementById("siBtn"); btn.disabled=true; btn.textContent="Signing in…";
+  try {
+    await setPersistence(auth, browserLocalPersistence);   // stay signed in on this device
+    await signInWithEmailAndPassword(auth, email, p);
+  } catch(e){
+    err.textContent = "Couldn't sign in — check your username and password.";
+  } finally {
+    btn.disabled=false; btn.textContent="Sign in";
+  }
+}
+document.getElementById("siBtn").addEventListener("click", doSignIn);
+document.getElementById("siPass").addEventListener("keydown", e=>{ if(e.key==="Enter") doSignIn(); });
+const note=document.getElementById("siNote"); if(note) note.textContent="";
+</script>
+</body>
+</html>
