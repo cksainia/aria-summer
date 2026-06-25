@@ -2,7 +2,7 @@
    Network-first for the app shell (so updates appear instantly when online),
    cache fallback for offline. Firebase CDN + Firestore are NOT intercepted —
    they always go straight to the network so live sync is never cached/broken. */
-const CACHE = "aria-tracker-v1";
+const CACHE = "aria-tracker-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-180.png"];
 
 self.addEventListener("install", (e) => {

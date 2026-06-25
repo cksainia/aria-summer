@@ -98,6 +98,22 @@
   .st-reading{background:var(--goldL);color:var(--gold);}
   .st-finished{background:var(--greenL);color:var(--green);}
 
+  /* Books grid (Libib-style) */
+  .bookGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:14px 12px;margin-bottom:6px;}
+  .bcard{text-align:left;}
+  .bcard .cov{position:relative;width:100%;aspect-ratio:2/3;border-radius:8px;overflow:hidden;
+    background:linear-gradient(160deg,#0D9488,#1E3A8A);box-shadow:var(--shadow);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:30px;}
+  .bcard .cov img{width:100%;height:100%;object-fit:cover;display:block;}
+  .bcard.fin .cov{box-shadow:0 0 0 2px var(--green),var(--shadow);}
+  .bcard.read .cov{box-shadow:0 0 0 2px var(--gold),var(--shadow);}
+  .bcard.unr .cov img{opacity:.8;}
+  .bcard.editable{cursor:pointer;}
+  .statusDot{position:absolute;top:5px;right:5px;width:21px;height:21px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.35);}
+  .bcard .bt{font-size:11px;font-weight:700;margin-top:5px;line-height:1.25;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
   /* Stats */
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow);}
@@ -898,40 +914,39 @@ function renderBooks(){
       <div class="qmsg" style="color:var(--muted)">${Store.state.books.length} books on her shelf${editing?" · tap a book's menu to update":""}</div>
     </div>`;
 
-  // group by series, preserving config order
+  if (editing) html += `<div class="editHint">✏️ Tap a cover to change status: To read → Reading → Finished.</div>`;
+
+  // group by series (collection), preserving config order — Libib-style cover grid
   const groups=[], map={};
   Store.state.books.forEach(b=>{ const s=b.series||"Other"; if(!map[s]){map[s]=[];groups.push(s);} map[s].push(b); });
   groups.forEach(s=>{
     const arr=map[s], f=arr.filter(b=>b.status==="finished").length;
-    html += `<h2 class="sec">${esc(s)} · ${f}/${arr.length}</h2>`;
+    html += `<h2 class="sec">${esc(s)} · ${f}/${arr.length}</h2><div class="bookGrid">`;
     arr.forEach(b=>{
-      const right = editing
-        ? `<select class="statusSel" data-book="${b.id}">
-             <option value="unread"${b.status==="unread"?" selected":""}>To read</option>
-             <option value="reading"${b.status==="reading"?" selected":""}>Reading</option>
-             <option value="finished"${b.status==="finished"?" selected":""}>Finished ✓</option>
-           </select>`
-        : `<span class="statusPill st-${b.status}">${b.status==="finished"?"Finished ✓":b.status==="reading"?"Reading":"To read"}</span>`;
-      const ring = b.status==="finished" ? "box-shadow:0 0 0 2px var(--green)" : b.status==="reading" ? "box-shadow:0 0 0 2px var(--gold)" : "";
-      const fb = b.status==="finished" ? "✓" : "📖";
-      const inner = b.cover
-        ? `<img src="${b.cover}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.textContent='${fb}'">`
-        : fb;
-      html += `<div class="book">
-        <div class="bCover" style="overflow:hidden;padding:0;${ring}">${inner}</div>
-        <div class="bInfo"><div class="bTitle">${esc(b.title)}</div><div class="bAuthor">${esc(b.author||"")}</div></div>
-        ${right}
+      const cls = b.status==="finished" ? "fin" : b.status==="reading" ? "read" : "unr";
+      const img = b.cover
+        ? `<img src="${b.cover}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('📖'))">`
+        : "📖";
+      const dot = b.status==="finished" ? `<div class="statusDot" style="background:var(--green)">✓</div>`
+                : b.status==="reading"  ? `<div class="statusDot" style="background:var(--gold)">📖</div>` : "";
+      html += `<div class="bcard ${cls}${editing?' editable':''}" data-book="${b.id}">
+        <div class="cov">${img}${dot}</div>
+        <div class="bt">${esc(b.title)}</div>
       </div>`;
     });
+    html += `</div>`;
   });
+
   document.getElementById("main").innerHTML = html;
   if (editing){
-    document.querySelectorAll("[data-book]").forEach(sel=>{
-      sel.addEventListener("change",()=>{
-        const id=sel.getAttribute("data-book");
-        const wasFin = booksFinished();
-        Store.state.books.find(x=>x.id===id).status = sel.value;
+    const order=["unread","reading","finished"];
+    document.querySelectorAll(".bcard[data-book]").forEach(el=>{
+      el.addEventListener("click",()=>{
+        const b=Store.state.books.find(x=>x.id===el.getAttribute("data-book"));
+        const wasFin=booksFinished();
+        b.status = order[(order.indexOf(b.status)+1)%3];
         Store.save(); renderHeader(); renderBooks();
+        showToast(b.title+" → "+(b.status==="finished"?"Finished ✓":b.status==="reading"?"Reading 📖":"To read"));
         if (booksFinished()>wasFin) celebrate();
       });
     });
