@@ -1,0 +1,4 @@
+# keep private reports & local cruft out of the public site
+BeastProgress Reports/
+*.pdf
+.DS_Store
