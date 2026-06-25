@@ -281,7 +281,7 @@ window.PLAN = {
   tracks: [
     { id:"reading", icon:"📚", label:"Reading",         target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
     { id:"beast",   icon:"🧮", label:"Beast Academy",   target:"25 min",         kind:"task",     core:true,  cadence:"daily" },
-    { id:"journal", icon:"✍️", label:"Journaling",      target:"15 min",         kind:"task",     core:true,  cadence:"daily" },
+    { id:"journal", icon:"✍️", label:"Journaling",      unit:"sentences", goal:5,  kind:"count",    core:true,  cadence:"daily" },
     { id:"hindi",   icon:"🪷", label:"Hindi Slayer",    target:"Earn 2 ⭐",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
     { id:"ixl",     icon:"📊", label:"IXL (Math + ELA)",target:"~20 min",        kind:"task",     core:true,  cadence:"daily" },
     { id:"khan",    icon:"➕", label:"Khan Grade 4",     target:"15 min",         kind:"task",     core:false, cadence:{ perWeek:3 } },
@@ -564,8 +564,17 @@ async function fetchHindi(){
 function isDone(dayKey, trackId){
   // Hindi today is auto-derived from her live app activity (shows instantly on every device)
   if (trackId === "hindi" && dayKey === todayKey() && hindiActiveToday()) return true;
+  // Journaling is done when she hits her sentence goal that day
+  if (trackId === "journal"){ const t=track("journal"); return journalCount(dayKey) >= (t.goal||1); }
   const day = Store.state.completions[dayKey];
   return !!(day && day[trackId]);
+}
+function journalCount(dayKey){ const d=Store.state.completions[dayKey]; return (d && d.journalCount) || 0; }
+function setJournalCount(dayKey, n){
+  if (n<0) n=0;
+  if (!Store.state.completions[dayKey]) Store.state.completions[dayKey] = {};
+  if (n>0) Store.state.completions[dayKey].journalCount = n; else delete Store.state.completions[dayKey].journalCount;
+  Store.save();
 }
 function setDone(dayKey, trackId, val){
   if (!Store.state.completions[dayKey]) Store.state.completions[dayKey] = {};
@@ -600,7 +609,14 @@ function badgeProgress(b){
   return "";
 }
 // combined reward currency: every academic task done + every habit done = 1 star
-function academicCompletions(){ let n=0; const C=Store.state.completions||{}; for(const d in C) n+=Object.keys(C[d]).length; return n; }
+function academicCompletions(){
+  let n=0; const C=Store.state.completions||{};
+  for(const d in C){
+    for(const key in C[d]){ if(key!=="journalCount") n++; }   // journalCount is data, not a task flag
+    if(isDone(d,"journal")) n++;                               // journaling = 1 star when goal met
+  }
+  return n;
+}
 function totalRewardStars(){ return academicCompletions() + heartsTotal(); }
 
 /* a day's quota is "met" when all CORE daily tracks are done */
@@ -746,6 +762,25 @@ function renderToday(){
   html += `<h2 class="sec">${editDay===todayKey()?"Today's tasks":"Tasks"}</h2>`;
   dailyTracks().forEach(t=>{
     const done = isDone(editDay,t.id);
+    // Journaling = sentence counter (stepper); done when she reaches her goal
+    if (t.id==="journal"){
+      const n=journalCount(editDay), goal=t.goal;
+      const control = editing
+        ? `<div style="display:flex;align-items:center;gap:6px">
+             <button class="goBtn" data-jdec style="padding:5px 13px;background:var(--soft);color:var(--ink);font-size:18px;line-height:1">−</button>
+             <span style="font-weight:800;min-width:22px;text-align:center;font-size:16px">${n}</span>
+             <button class="goBtn" data-jinc style="padding:5px 13px;font-size:18px;line-height:1">+</button>
+           </div>`
+        : `<div style="font-weight:800;color:${done?'var(--green)':'var(--muted)'};min-width:44px;text-align:right">${n}/${goal}</div>`;
+      html += `<div class="task${done?" done":""}">
+        <div class="tIcon">${t.icon}</div>
+        <div class="tBody"><div class="tLabel">${t.label} <span class="tag core">CORE</span></div>
+          <div class="tTarget">${goal} ${t.unit} · wrote ${n}</div></div>
+        ${control}
+        <div class="check${done?' done':''}" style="cursor:default;margin-left:8px">${done?'✓':''}</div>
+      </div>`;
+      return;
+    }
     const checkCls = "check"+(done?" done":"")+(editing?" editable":"");
     let sub = t.target, extra = "";
     if (t.id==="beast"){
@@ -798,6 +833,17 @@ function renderToday(){
   if (bb) bb.onclick=()=>{ view="beast"; beastOpenChapter=null; render(); };
   const hb=document.querySelector("[data-hindi]");
   if (hb) hb.onclick=()=>{ view="hindi"; render(); };
+  if (editing){
+    const jStep=(delta)=>{
+      const wasMet = editDay===todayKey() && dayMet(editDay);
+      setJournalCount(editDay, journalCount(editDay)+delta);
+      const nowMet = editDay===todayKey() && dayMet(editDay);
+      renderHeader(); renderToday();
+      if (!wasMet && nowMet) celebrate();
+    };
+    const ji=document.querySelector("[data-jinc]"); if(ji) ji.onclick=()=>jStep(1);
+    const jd=document.querySelector("[data-jdec]"); if(jd) jd.onclick=()=>jStep(-1);
+  }
 }
 
 function weekStartKey(refKey){
