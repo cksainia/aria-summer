@@ -108,6 +108,8 @@
   .bcard.fin .cov{box-shadow:0 0 0 2px var(--green),var(--shadow);}
   .bcard.read .cov{box-shadow:0 0 0 2px var(--gold),var(--shadow);}
   .bcard.unr .cov img{opacity:.8;}
+  .bcard.prev .cov{box-shadow:0 0 0 2px #c2bcb0,var(--shadow);}
+  .bcard.prev .cov img{opacity:.4;filter:grayscale(.5);}
   .bcard.editable{cursor:pointer;}
   .statusDot{position:absolute;top:5px;right:5px;width:21px;height:21px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.35);}
@@ -502,8 +504,8 @@ const Store = {
         ["b4","b5","b6","b7","b8","b44","b1"].forEach(id=>{ const bk=this.state.books.find(x=>x.id===id); if(bk) bk.status="finished"; });
       this.state.booksSeed = 4; changed = true;
     }
-    // Beast progress from her real BA reports
-    if (this.state.beastSeed !== 3){
+    // Beast progress from her real BA reports (v4: reset after a mis-tap scrambled today's dates)
+    if (this.state.beastSeed !== 4){
       this.state.beast = { items:{}, chap:{} };
       Object.assign(this.state.beast.items, {
         "1:0":"2026-05-27","1:1":"2026-05-27","1:2":"2026-05-28","1:3":"2026-05-28","1:4":"2026-05-30",
@@ -513,7 +515,7 @@ const Store = {
         "2:0":"2026-06-02","2:1":"2026-06-02","2:2":"2026-06-02",
         "2:3":"2026-06-17","2:4":"2026-06-17","2:5":"2026-06-23",
       });
-      this.state.beastSeed = 3; changed = true;
+      this.state.beastSeed = 4; changed = true;
     }
     return changed;
   },
@@ -909,27 +911,35 @@ function renderBooks(){
   const editing = Store.state.parentMode;
   const fin = booksFinished();
   const pct = Math.min(100, Math.round(fin/PLAN.goals.booksTarget*100));
+  const prevCount = Store.state.books.filter(b=>b.status==="prev").length;
   let html = `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink)">
-      <div class="qtop"><span>📚 Books finished this summer</span><span>${fin} / ${PLAN.goals.booksTarget}</span></div>
+      <div class="qtop"><span>📚 New books finished this summer</span><span>${fin} / ${PLAN.goals.booksTarget}</span></div>
       <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${pct}%"></div></div>
-      <div class="qmsg" style="color:var(--muted)">${Store.state.books.length} books on her shelf${editing?" · tap a book's menu to update":""}</div>
+      <div class="qmsg" style="color:var(--muted)">${Store.state.books.length} on her shelf${prevCount?` · ${prevCount} already-read (not counted)`:""}</div>
     </div>`;
 
-  if (editing) html += `<div class="editHint">✏️ Tap a cover to change status: To read → Reading → Finished.</div>`;
+  if (editing){
+    html += `<div class="editHint">✏️ Tap a cover to cycle: To read → Reading → Finished → Already-read (✦ doesn't count).</div>`;
+    html += `<button class="btn ghost" id="bulkPrev" style="width:100%;margin-bottom:12px">📖 Mark all “To read” as already-read</button>`;
+  }
 
   // group by series (collection), preserving config order — Libib-style cover grid
   const groups=[], map={};
   Store.state.books.forEach(b=>{ const s=b.series||"Other"; if(!map[s]){map[s]=[];groups.push(s);} map[s].push(b); });
+  const STATUS_LABEL = { unread:"To read", reading:"Reading 📖", finished:"Finished ✓", prev:"Already-read ✦" };
   groups.forEach(s=>{
-    const arr=map[s], f=arr.filter(b=>b.status==="finished").length;
-    html += `<h2 class="sec">${esc(s)} · ${f}/${arr.length}</h2><div class="bookGrid">`;
+    const arr=map[s];
+    const f=arr.filter(b=>b.status==="finished").length;
+    const summerTotal=arr.filter(b=>b.status!=="prev").length;   // books that count this summer
+    html += `<h2 class="sec">${esc(s)} · ${f}/${summerTotal}</h2><div class="bookGrid">`;
     arr.forEach(b=>{
-      const cls = b.status==="finished" ? "fin" : b.status==="reading" ? "read" : "unr";
+      const cls = b.status==="finished" ? "fin" : b.status==="reading" ? "read" : b.status==="prev" ? "prev" : "unr";
       const img = b.cover
         ? `<img src="${b.cover}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('📖'))">`
         : "📖";
       const dot = b.status==="finished" ? `<div class="statusDot" style="background:var(--green)">✓</div>`
-                : b.status==="reading"  ? `<div class="statusDot" style="background:var(--gold)">📖</div>` : "";
+                : b.status==="reading"  ? `<div class="statusDot" style="background:var(--gold)">📖</div>`
+                : b.status==="prev"     ? `<div class="statusDot" style="background:#8a8275" title="Already read">✦</div>` : "";
       html += `<div class="bcard ${cls}${editing?' editable':''}" data-book="${b.id}">
         <div class="cov">${img}${dot}</div>
         <div class="bt">${esc(b.title)}</div>
@@ -940,14 +950,20 @@ function renderBooks(){
 
   document.getElementById("main").innerHTML = html;
   if (editing){
-    const order=["unread","reading","finished"];
+    const bp=document.getElementById("bulkPrev");
+    if (bp) bp.onclick=()=>{
+      let n=0; Store.state.books.forEach(b=>{ if(b.status==="unread"){ b.status="prev"; n++; } });
+      Store.save(); renderHeader(); renderBooks();
+      showToast(`Marked ${n} book${n!==1?"s":""} as already-read`);
+    };
+    const order=["unread","reading","finished","prev"];
     document.querySelectorAll(".bcard[data-book]").forEach(el=>{
       el.addEventListener("click",()=>{
         const b=Store.state.books.find(x=>x.id===el.getAttribute("data-book"));
         const wasFin=booksFinished();
-        b.status = order[(order.indexOf(b.status)+1)%3];
+        b.status = order[(order.indexOf(b.status)+1)%order.length];
         Store.save(); renderHeader(); renderBooks();
-        showToast(b.title+" → "+(b.status==="finished"?"Finished ✓":b.status==="reading"?"Reading 📖":"To read"));
+        showToast(b.title+" → "+STATUS_LABEL[b.status]);
         if (booksFinished()>wasFin) celebrate();
       });
     });
@@ -1054,16 +1070,20 @@ function renderBeast(){
         e.stopPropagation();
         const [n,i]=el.getAttribute("data-bitem").split(":").map(Number);
         const ch=beastChap(n), wasDone=beastItemDone(n,i), before=chaptersComplete(), t=todayKey();
+        const undoSnap = JSON.stringify(Store.state.beast.items);   // snapshot for Undo
         // sequential "tap-through": mark DONE up to & including this lesson, or CLEAR from here on
         ch.lessons.forEach((ls,idx)=>{
           if (ls.g) return;                                  // guides don't count
           const key=n+":"+idx;
-          if (!wasDone && idx<=i) Store.state.beast.items[key]=t;       // done through here
+          if (!wasDone && idx<=i){ if(!Store.state.beast.items[key]) Store.state.beast.items[key]=t; } // only stamp NEW ones (keep real dates)
           else if (wasDone && idx>=i) delete Store.state.beast.items[key]; // not done from here
         });
         Store.save();                                        // one write/push
         renderHeader(); renderBeast();
         if (chaptersComplete()>before) celebrate();
+        const ln = ch.lessons[i] ? ch.lessons[i].n : "lesson";
+        showToast((wasDone ? "Cleared from “"+ln+"”" : "Marked through “"+ln+"”"),
+          ()=>{ Store.state.beast.items = JSON.parse(undoSnap); Store.save(); renderHeader(); renderBeast(); });
       });
     });
     document.querySelectorAll("[data-chapdone]").forEach(el=>{
@@ -1149,10 +1169,12 @@ function renderHindi(){
 }
 
 let _toastTimer=null;
-function showToast(msg){
+function showToast(msg, undoFn){
   const el=document.getElementById("toast"); if(!el) return;
-  el.textContent=msg; el.classList.add("show");
-  clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>el.classList.remove("show"), 2300);
+  el.innerHTML = esc(msg) + (undoFn ? ` <button id="toastUndo" style="margin-left:10px;background:rgba(255,255,255,.22);border:none;color:#fff;font-weight:800;border-radius:8px;padding:4px 11px;cursor:pointer;font-family:inherit">Undo</button>` : "");
+  el.classList.add("show");
+  clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>el.classList.remove("show"), undoFn?6000:2300);
+  if (undoFn){ const b=document.getElementById("toastUndo"); if(b) b.onclick=()=>{ undoFn(); el.classList.remove("show"); }; }
 }
 
 function renderHabits(){
