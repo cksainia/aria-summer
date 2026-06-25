@@ -1334,7 +1334,8 @@ const firebaseConfig = {
   messagingSenderId: "943653530208",
   appId: "1:943653530208:web:014a7a7abf4b4ab2627105"
 };
-const ARIA_UID = "BeZViKc1uaRwJztY7Flpxdnh2Ux1";  // opaque (not PII); anyone who isn't this UID is the parent
+const PARENT_UID = "ForoefZlHRbJIwZgCraAxAUfq1n2";  // opaque UIDs (not PII) — explicit role mapping
+const ARIA_UID   = "BeZViKc1uaRwJztY7Flpxdnh2Ux1";
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -1367,7 +1368,11 @@ function startSync(){
 
 onAuthStateChanged(auth, (user)=>{
   if (!user){ role="none"; window.AriaSync.role="none"; if(unsub){unsub();unsub=null;} window.showSignIn && window.showSignIn(); return; }
-  role = (user.uid === ARIA_UID) ? "aria" : "parent";   // role by UID, not email
+  role = user.uid === PARENT_UID ? "parent" : user.uid === ARIA_UID ? "aria" : "none";
+  if (role === "none"){   // unknown account -> bounce back to the sign-in gate
+    const err=document.getElementById("siErr"); if(err) err.textContent="This account isn't set up for Aria's tracker.";
+    if(unsub){unsub();unsub=null;} window.AriaSync.role="none"; signOut(auth); return;
+  }
   window.AriaSync.role = role;
   window.hideSignIn && window.hideSignIn();
   window.onSignedIn && window.onSignedIn(role);
