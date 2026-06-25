@@ -1,12 +1,12 @@
 /* Aria's Summer Tracker — service worker.
-   Network-first for the app shell (so updates appear instantly when online),
-   cache fallback for offline. Firebase CDN + Firestore are NOT intercepted —
-   they always go straight to the network so live sync is never cached/broken. */
-const CACHE = "aria-tracker-v2";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-180.png"];
+   Intentionally minimal: it ONLY handles page navigation (so the app shell works offline).
+   Everything else — cover images, icons, Firebase, fonts — is left to the browser to fetch
+   natively. (An earlier version intercepted all GETs and could return index.html in place of a
+   failed image, which broke cover thumbnails. This avoids that entirely.) */
+const CACHE = "aria-tracker-v3";
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.add("./index.html")).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -18,12 +18,10 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
-  if (req.method !== "GET") return;
-  // only handle our own origin; let Firebase/gstatic go to the network untouched
-  if (new URL(req.url).origin !== location.origin) return;
+  if (req.method !== "GET" || req.mode !== "navigate") return;   // only the app shell
   e.respondWith(
     fetch(req)
-      .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
-      .catch(() => caches.match(req).then((r) => r || caches.match("./index.html")))
+      .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put("./index.html", copy)); return res; })
+      .catch(() => caches.match("./index.html"))
   );
 });
