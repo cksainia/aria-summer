@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Aria's Summer">
 <meta name="theme-color" content="#0D9488">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>Aria's Summer Tracker</title>
 <style>
   :root{
@@ -968,6 +971,11 @@ window.showSignIn=showSignIn; window.hideSignIn=hideSignIn; window.onSignedIn=on
 Store.load();
 Store.state.parentMode=false; // always start in Aria's view
 render();
+
+// register service worker (offline shell + installability)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
 </script>
 
 <script type="module">
