@@ -847,6 +847,8 @@ function renderBeast(){
   const tgt=beastDailyTarget(), today=beastDoneToday(), rem=beastRemainingLessons(), days=activeDaysFrom(todayKey());
   html += `<div class="editHint" style="background:var(--tealL);border-color:#9fe0d8;color:#065f54">
       🎯 Auto-pace: aim for <b>${tgt} lesson${tgt>1?'s':''} today</b> · ${today} done · ${rem} left over ${days} learning days</div>`;
+  if (Store.state.parentMode)
+    html += `<div class="editHint">✏️ Tap the lesson she's reached — it marks that one <b>and everything before it</b> done. Tap a done one to roll back.</div>`;
   html += `<h2 class="sec">Tap a chapter to see lessons</h2>`;
 
   PLAN.beastChapters.forEach(ch=>{
@@ -901,8 +903,15 @@ function renderBeast(){
       el.addEventListener("click",e=>{
         e.stopPropagation();
         const [n,i]=el.getAttribute("data-bitem").split(":").map(Number);
-        const before=chaptersComplete();
-        setBeastItem(n,i,!beastItemDone(n,i));
+        const ch=beastChap(n), wasDone=beastItemDone(n,i), before=chaptersComplete(), t=todayKey();
+        // sequential "tap-through": mark DONE up to & including this lesson, or CLEAR from here on
+        ch.lessons.forEach((ls,idx)=>{
+          if (ls.g) return;                                  // guides don't count
+          const key=n+":"+idx;
+          if (!wasDone && idx<=i) Store.state.beast.items[key]=t;       // done through here
+          else if (wasDone && idx>=i) delete Store.state.beast.items[key]; // not done from here
+        });
+        Store.save();                                        // one write/push
         renderHeader(); renderBeast();
         if (chaptersComplete()>before) celebrate();
       });
