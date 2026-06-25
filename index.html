@@ -494,12 +494,13 @@ const Store = {
     let changed = false;
     if (!this.state.completions) this.state.completions = {};
     if (!this.state.habits) this.state.habits = {};
-    // shelf from plan (preserves statuses by id across refreshes)
-    if (!this.state.books || this.state.booksSeed !== 3){
+    // shelf from plan (preserves statuses by id across refreshes; v4 re-adds cover images)
+    if (!this.state.books || this.state.booksSeed !== 4){
       const prev = {}; (this.state.books||[]).forEach(b=>{ prev[b.id]=b.status; });
       this.state.books = JSON.parse(JSON.stringify(PLAN.books)).map(b=> prev[b.id] ? Object.assign(b,{status:prev[b.id]}) : b);
-      ["b4","b5","b6","b7","b8","b44","b1"].forEach(id=>{ const bk=this.state.books.find(x=>x.id===id); if(bk) bk.status="finished"; }); // Amulet #1-7
-      this.state.booksSeed = 3; changed = true;
+      if (this.state.booksSeed === undefined) // first-ever seed only: Amulet #1-7 finished
+        ["b4","b5","b6","b7","b8","b44","b1"].forEach(id=>{ const bk=this.state.books.find(x=>x.id===id); if(bk) bk.status="finished"; });
+      this.state.booksSeed = 4; changed = true;
     }
     // Beast progress from her real BA reports
     if (this.state.beastSeed !== 3){
