@@ -188,6 +188,39 @@
   .restCard{background:var(--violetL);border:1px solid #d6c8f5;border-radius:16px;padding:20px;text-align:center;}
   .restCard .big{font-size:40px;}
   .syncDot{font-size:11px;opacity:.75;margin-top:10px;}
+
+  /* Phase banner (Today + Roadmap) */
+  .phaseBanner{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;
+    padding:11px 14px;margin:12px 0;font-size:13px;line-height:1.45;}
+  .phaseBanner .pbIcon{font-size:22px;flex-shrink:0;}
+  /* Roadmap (🗺️ Plan) */
+  .phaseNav{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch;}
+  .phaseChip{flex-shrink:0;background:#fff;border:2px solid var(--line);border-radius:999px;
+    padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .phaseHead{border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:4px 0 12px;}
+  .phaseHTitle{font-size:18px;font-weight:800;}
+  .rmTabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;}
+  .rmTab{flex:1;background:none;border:none;border-bottom:3px solid transparent;padding:10px 4px;
+    font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;}
+  .rmTab.on{font-weight:800;}
+  .rmItem{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin-bottom:10px;}
+  .rmStd,.rmDay{color:#fff;border-radius:8px;padding:4px 9px;font-size:11px;font-weight:800;
+    white-space:nowrap;flex-shrink:0;margin-top:1px;}
+  .rmDay{min-width:92px;text-align:center;}
+  .rmTopic{font-weight:800;font-size:15px;}
+  .rmDesc{color:var(--muted);font-size:13px;line-height:1.5;margin-top:2px;}
+  .rmHint{color:var(--muted);font-size:13px;font-style:italic;margin-bottom:10px;}
+  .rmRes{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+  .rmRes.editable{cursor:pointer;}
+  .rmRes.got{background:var(--greenL);border-color:#9fe7c4;}
+  .rmCheck{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;}
+  .rmCheck.on{background:var(--green);border-color:var(--green);}
+  .rmTags{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;}
+  .rmTag{border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap;}
+  .rmTag.price{background:#F0F9F7;color:var(--teal);}
 </style>
 </head>
 <body>
@@ -197,7 +230,7 @@
     <div class="hrow">
       <div>
         <div class="hi">Summer Learning</div>
-        <div class="hname" id="hName">Aria's Summer</div>
+        <div class="hname" id="hName">Aria's Year</div>
         <div class="hdate" id="hDate">—</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -208,8 +241,9 @@
     <div class="chips">
       <div class="chip">🔥 <span id="streak">0</span>-day streak</div>
       <div class="chip">⭐ <span id="starsTotal">0</span> days crushed</div>
-      <div class="chip">📚 <span id="booksDone">0</span>/<span id="booksGoal">12</span> books</div>
+      <div class="chip">📚 <span id="booksDone">0</span>/<span id="booksGoal">50</span> books</div>
       <div class="chip">❤️ <span id="heartsCount">0</span> hearts</div>
+      <div class="chip">🎯 <span id="njslaCt">—</span></div>
     </div>
     <div class="quota">
       <div class="qtop"><span>Today's quota</span><span id="qCount">0 / 0</span></div>
@@ -224,6 +258,7 @@
 
 <nav>
   <button data-view="today" class="on"><span class="ni">📋</span>Today</button>
+  <button data-view="roadmap"><span class="ni">🗺️</span>Plan</button>
   <button data-view="habits"><span class="ni">❤️</span>Habits</button>
   <button data-view="books"><span class="ni">📚</span>Books</button>
   <button data-view="progress"><span class="ni">📈</span>Progress</button>
@@ -267,8 +302,9 @@
    ============================================================ */
 window.PLAN = {
   childName: "Aria",
-  startDate: "2026-06-25",      // first day
-  endDate:   "2026-09-07",      // Labor Day 2026
+  startDate: "2026-06-25",      // first day (summer bridge begins)
+  endDate:   "2027-05-29",      // through the NJSLA-Adaptive Spring 2027 test window
+  njslaDate: "2027-04-27",      // NJSLA-Adaptive testing window opens (Apr 27 – May 22, 2027)
   restDay:   0,                 // 0 = Sunday off
   parentPin: "2468",            // change me
   hindiUrl:  "https://cksainia.github.io/hindi-garden/",
@@ -296,13 +332,164 @@ window.PLAN = {
     { id:"sib",    icon:"🧸", name:"Best Big Sister",  desc:"Played with Richit 5 days" },
     { id:"grate",  icon:"🌟", name:"Grateful Heart",   desc:"Gratitude 6 days this week" },
   ],
-  tracks: [
-    { id:"reading", icon:"📚", label:"Reading",         target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
-    { id:"beast",   icon:"🧮", label:"Beast Academy",   target:"25 min",         kind:"task",     core:true,  cadence:"daily" },
-    { id:"journal", icon:"✍️", label:"Journaling",      unit:"sentences", goal:20, kind:"count",    core:true,  cadence:"daily" },
-    { id:"hindi",   icon:"🪷", label:"Hindi Slayer",    target:"Earn 2 ⭐",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
-    { id:"ixl",     icon:"📊", label:"IXL (Math + ELA)",target:"~20 min",        kind:"task",     core:true,  cadence:"daily" },
-    { id:"khan",    icon:"➕", label:"Khan Grade 4",     target:"15 min",         kind:"task",     core:false, cadence:{ perWeek:3 } },
+  /* ── YEAR-LONG PLAN: 4 phases, each with its OWN daily task set + Grade-3 curriculum.
+        The app auto-selects the phase by today's date; "today's quota" is that phase's
+        CORE daily tracks. Standards/workbooks/schedule feed the 🗺️ Plan (Roadmap) tab.
+        Shared all year: Reading, Journaling, Hindi Slayer. Math/practice mix changes. ── */
+  phases: [
+    {
+      id:"summer", label:"Summer 2026", subtitle:"Jun – Aug", icon:"☀️", color:"#FF6B4A",
+      start:"2026-06-25", end:"2026-09-06",
+      goal:"Bridge Grade 2 → 3 — build stamina, fact fluency & love of learning",
+      tracks:[
+        { id:"reading", icon:"📚", label:"Reading",          target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
+        { id:"beast",   icon:"🧮", label:"Beast Academy",    target:"25 min",         kind:"task",     core:true,  cadence:"daily" },
+        { id:"journal", icon:"✍️", label:"Journaling",       unit:"sentences", goal:20, kind:"count",   core:true,  cadence:"daily" },
+        { id:"hindi",   icon:"🪷", label:"Hindi Slayer",     target:"Earn 2 ⭐",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+        { id:"ixl",     icon:"📊", label:"IXL (Math + ELA)", target:"~20 min",        kind:"task",     core:true,  cadence:"daily" },
+        { id:"khan",    icon:"➕", label:"Khan Grade 4",      target:"15 min",         kind:"task",     core:false, cadence:{ perWeek:3 } },
+      ],
+      math:[
+        { topic:"Multiplication Foundations", desc:"Times tables 0–10 via skip counting, arrays, visual models", standard:"3.OA.A" },
+        { topic:"Division Concepts", desc:"Relate division to multiplication; equal groups & sharing", standard:"3.OA.B" },
+        { topic:"Place Value to 1,000", desc:"Expanded form, comparing, rounding to nearest 10/100", standard:"3.NBT" },
+        { topic:"Intro to Fractions", desc:"Unit fractions, fractions on a number line, equal parts", standard:"3.NF.A" },
+        { topic:"Measurement", desc:"Elapsed time, liquid volume (liters), mass (grams/kg)", standard:"3.MD.A" },
+      ],
+      ela:[
+        { topic:"Reading Comprehension", desc:"Main idea & details, character traits, sequencing", standard:"RI/RL.3.1–3.3" },
+        { topic:"Vocabulary Building", desc:"Context clues, prefixes/suffixes, Tier 2 academic words", standard:"L.3.4–3.6" },
+        { topic:"Writing Foundations", desc:"Opinion paragraphs; narrative writing with dialogue", standard:"W.3.1–3.3" },
+        { topic:"Fluency & Phonics", desc:"Silent e, vowel teams, multisyllabic words; 90–100 wcpm", standard:"RF.3.3–3.4" },
+        { topic:"Grammar", desc:"Nouns, verbs, adjectives, pronouns, subject-verb agreement", standard:"L.3.1–3.2" },
+      ],
+      workbooks:[
+        { name:"Spectrum Grade 3 Math", type:"Workbook", price:"~$12", note:"Bridge + preview topics" },
+        { name:"Spectrum Grade 3 Reading", type:"Workbook", price:"~$12", note:"Comprehension strategies" },
+        { name:"Summer Bridge Activities Gr 2–3", type:"Workbook", price:"~$14", note:"Mixed review, fun format" },
+        { name:"Beast Academy 3A–3D", type:"Workbook+Online", price:"sub", note:"Her core math spine this summer" },
+      ],
+      schedule:[
+        { day:"Mon–Fri", activity:"Beast Academy (25 min) + reading (30 min)" },
+        { day:"Mon–Fri", activity:"IXL Math+ELA (20 min) + journaling (20 sentences)" },
+        { day:"Daily", activity:"Hindi Slayer — earn 2 ⭐" },
+        { day:"Saturday", activity:"Enrichment: math games, cooking fractions, library trip" },
+      ],
+    },
+    {
+      id:"fall", label:"Fall 2026", subtitle:"Sep – Dec", icon:"🍂", color:"#F5A623",
+      start:"2026-09-07", end:"2026-12-31",
+      goal:"Master core Grade-3 standards; build test-taking habits",
+      tracks:[
+        { id:"reading",  icon:"📚", label:"Reading",          target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
+        { id:"journal",  icon:"✍️", label:"Journaling",       unit:"sentences", goal:20, kind:"count",   core:true,  cadence:"daily" },
+        { id:"hindi",    icon:"🪷", label:"Hindi Slayer",     target:"Earn 2 ⭐",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+        { id:"ixl",      icon:"📊", label:"IXL Math",         target:"20 min",         kind:"task",     core:true,  cadence:"daily" },
+        { id:"lumosEla", icon:"📝", label:"Lumos ELA",        target:"25 min",         kind:"task",     core:true,  cadence:"daily" },
+        { id:"beast",    icon:"🧮", label:"Beast Academy",    target:"Finish 3A–3D",   kind:"task",     core:false, cadence:"daily" },
+        { id:"reflex",   icon:"⚡", label:"Reflex Math facts", target:"10 min",         kind:"task",     core:false, cadence:{ perWeek:3 } },
+      ],
+      math:[
+        { topic:"Multiplication & Division Fluency", desc:"Facts through 10×10; commutative/distributive/associative", standard:"3.OA.C–D" },
+        { topic:"Multi-step Word Problems", desc:"Two-step problems, all four operations; choose the operation", standard:"3.OA.D.8" },
+        { topic:"Fractions Deep Dive", desc:"Equivalent fractions; compare with same numerator/denominator", standard:"3.NF.A.3" },
+        { topic:"Area & Perimeter", desc:"Tiling, counting squares, formulas, real-world problems", standard:"3.MD.C.5–7" },
+        { topic:"Data & Graphs", desc:"Scaled picture graphs, bar graphs, line plots", standard:"3.MD.B.3–4" },
+      ],
+      ela:[
+        { topic:"Informational Text", desc:"Text features, compare two texts, author's purpose", standard:"RI.3.5–3.9" },
+        { topic:"Literary Analysis", desc:"Theme, point of view, how characters respond", standard:"RL.3.5–3.6" },
+        { topic:"Opinion Writing", desc:"Multi-paragraph essays: claim, 3 reasons, conclusion", standard:"W.3.1" },
+        { topic:"Research Writing", desc:"Short research projects; note-taking, organize info", standard:"W.3.7–3.8" },
+        { topic:"Figurative Language", desc:"Similes, metaphors, alliteration; word relationships", standard:"L.3.5" },
+      ],
+      workbooks:[
+        { name:"IXL Ultimate 3rd Grade Math Workbook", type:"Workbook", price:"~$18", note:"NJ-aligned, thorough" },
+        { name:"Lumos NJSLA Grade 3 Math (2026–27)", type:"Workbook+Online", price:"~$22", note:"NJ-specific, AI-personalized" },
+        { name:"Lumos NJSLA Grade 3 ELA (2026–27)", type:"Workbook+Online", price:"~$22", note:"NJ-specific, practice tests" },
+        { name:"Reflex Math", type:"App", price:"~$35/yr", note:"Fact fluency, gamified" },
+      ],
+      schedule:[
+        { day:"Mon/Wed/Fri", activity:"IXL Math (20 min) + Reflex Math (10 min)" },
+        { day:"Tue/Thu", activity:"Lumos ELA (25 min) + independent reading (20 min)" },
+        { day:"Daily", activity:"Journaling + Hindi Slayer; finish Beast 3A–3D" },
+        { day:"Saturday", activity:"Enrichment: STEM project, writing journal, read-aloud" },
+      ],
+    },
+    {
+      id:"winter", label:"Winter 2026–27", subtitle:"Jan – Feb", icon:"❄️", color:"#7C5CBF",
+      start:"2027-01-01", end:"2027-02-28",
+      goal:"Target gaps + introduce NJSLA-Adaptive-style questions",
+      tracks:[
+        { id:"reading",   icon:"📚", label:"Reading",            target:"Read your book", kind:"book",  core:true,  cadence:"daily" },
+        { id:"journal",   icon:"✍️", label:"Journaling",         unit:"sentences", goal:20, kind:"count", core:true, cadence:"daily" },
+        { id:"hindi",     icon:"🪷", label:"Hindi Slayer",       target:"Earn 2 ⭐",       kind:"external", core:true, cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+        { id:"njslaMath", icon:"📐", label:"NJSLA Math practice", target:"15 min",         kind:"task",  core:true,  cadence:"daily" },
+        { id:"njslaEla",  icon:"📖", label:"NJSLA ELA practice",  target:"15 min",         kind:"task",  core:true,  cadence:"daily" },
+        { id:"reflex",    icon:"⚡", label:"Reflex Math facts",   target:"10 min",         kind:"task",  core:false, cadence:{ perWeek:3 } },
+        { id:"miniTest",  icon:"🧪", label:"Friday mini test",    target:"1 unit (Fri)",   kind:"task",  core:false, cadence:{ perWeek:1 } },
+      ],
+      math:[
+        { topic:"Geometry", desc:"Attributes of shapes; quadrilaterals; partition into equal areas", standard:"3.G.A" },
+        { topic:"Number Patterns", desc:"Arithmetic patterns in addition/multiplication tables", standard:"3.OA.D.9" },
+        { topic:"Measurement Review", desc:"Intervals of time, volumes, masses", standard:"3.MD.A.1–2" },
+        { topic:"Mixed Word Problems", desc:"NJSLA-style multi-step; assess & re-teach weak areas", standard:"All 3.OA" },
+      ],
+      ela:[
+        { topic:"Text Evidence", desc:"Quote directly to support answers; close reading", standard:"RL/RI.3.1" },
+        { topic:"Informative Writing", desc:"Develop topic with facts, definitions; strong conclusion", standard:"W.3.2" },
+        { topic:"Editing & Conventions", desc:"Capitalize titles, commas in lists, apostrophes, spelling", standard:"L.3.2" },
+        { topic:"Vocabulary in Context", desc:"Use context + word structure for unknown words", standard:"L.3.4" },
+      ],
+      workbooks:[
+        { name:"Sullivan NJSLA 2-in-1 Grade 3 ELA+Math", type:"Workbook", price:"~$25", note:"23 full practice tests, NJSLA-format" },
+        { name:"Evan-Moor Daily 6-Trait Writing Gr 3", type:"Workbook", price:"~$18", note:"Writing craft, NJSLA essays" },
+        { name:"Khan Academy (free)", type:"Platform", price:"Free", note:"Assign Grade-3 NJ mission" },
+      ],
+      schedule:[
+        { day:"Mon–Thu", activity:"NJSLA practice questions (30 min split ELA/Math)" },
+        { day:"Fri", activity:"Full mini practice test (1 unit ELA OR Math)" },
+        { day:"Daily", activity:"Reading + journaling + Hindi Slayer" },
+        { day:"Weekend", activity:"Review errors; enrichment reading; writing journal" },
+      ],
+    },
+    {
+      id:"spring", label:"Spring 2027", subtitle:"Mar – May · Test Apr 27–May 22", icon:"🌸", color:"#2D9A6A",
+      start:"2027-03-01", end:"2027-05-29",
+      goal:"Peak performance: full simulations + confidence building",
+      tracks:[
+        { id:"reading", icon:"📚", label:"Reading",            target:"Read for fun",   kind:"book",  core:true,  cadence:"daily" },
+        { id:"journal", icon:"✍️", label:"Journaling",         unit:"sentences", goal:20, kind:"count", core:true, cadence:"daily" },
+        { id:"hindi",   icon:"🪷", label:"Hindi Slayer",       target:"Earn 2 ⭐",       kind:"external", core:true, cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+        { id:"simMath", icon:"🎯", label:"Math practice unit",  target:"1 unit + facts", kind:"task",  core:true,  cadence:"daily" },
+        { id:"simEla",  icon:"🖊️", label:"ELA practice unit",   target:"1 unit + essay", kind:"task",  core:true,  cadence:"daily" },
+        { id:"fullSim", icon:"🏁", label:"Full simulation test", target:"Weekend (2.5 hr)", kind:"task", core:false, cadence:{ perWeek:1 } },
+      ],
+      math:[
+        { topic:"Full Standards Review", desc:"Systematic review of all Grade-3 domains via practice tests", standard:"All Grade 3" },
+        { topic:"Timed Fact Practice", desc:"100 facts in 5 min; automaticity under mild time pressure", standard:"3.OA.C.7" },
+        { topic:"NJSLA Math Simulation", desc:"Full timed practice; analyze errors", standard:"NJSLA Format" },
+        { topic:"Test Strategy", desc:"Eliminate wrong answers, show work, check reasonableness", standard:"Test Skills" },
+      ],
+      ela:[
+        { topic:"Passage-Based Practice", desc:"Paired literary + informational; NJSLA-style questions", standard:"RL/RI.3" },
+        { topic:"Extended Writing", desc:"Full opinion & informative essays; revise with checklists", standard:"W.3.1–3.2" },
+        { topic:"NJSLA ELA Simulation", desc:"Full ELA simulation; time management", standard:"NJSLA Format" },
+        { topic:"Final Vocabulary Review", desc:"Academic vocabulary, literary terms, context clues", standard:"L.3.4–3.6" },
+      ],
+      workbooks:[
+        { name:"Sullivan NJSLA Grade 3 Math (14 Tests)", type:"Workbook", price:"~$15", note:"14 full practice tests" },
+        { name:"Sullivan NJSLA Grade 3 ELA (9 Tests, 2027 Ed.)", type:"Workbook", price:"~$15", note:"9 tests + essay models" },
+        { name:"NJDOE Released Items (free)", type:"Online", price:"Free", note:"Official released NJSLA items" },
+      ],
+      schedule:[
+        { day:"Mon/Wed", activity:"ELA: 1 full practice unit (60 min) + essay (20 min)" },
+        { day:"Tue/Thu", activity:"Math: 1 full practice unit (60 min) + fact fluency (10 min)" },
+        { day:"Fri", activity:"Error review, concept re-teach, light fun activity" },
+        { day:"Saturday", activity:"Full combined simulation test (2.5 hr) + reward!" },
+        { day:"Week before test", activity:"Light review only — rest, nutrition, confidence talks" },
+      ],
+    },
   ],
   books: [
     // Amulet
@@ -479,7 +666,7 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed"]; // what lives in the cloud doc
+const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources"]; // what lives in the cloud doc
 const Store = {
   state: null,
   load(){
@@ -496,6 +683,7 @@ const Store = {
     let changed = false;
     if (!this.state.completions) this.state.completions = {};
     if (!this.state.habits) this.state.habits = {};
+    if (!this.state.resources) this.state.resources = {};   // 🗺️ Plan tab: ticked workbooks/resources
     // shelf from plan (preserves statuses by id across refreshes; v4 re-adds cover images)
     if (!this.state.books || this.state.booksSeed !== 4){
       const prev = {}; (this.state.books||[]).forEach(b=>{ prev[b.id]=b.status; });
@@ -556,8 +744,22 @@ function activeDaysUpTo(upToKey){
 /* ============================================================
    CORE LOGIC
    ============================================================ */
-const dailyTracks = () => PLAN.tracks.filter(t=>t.cadence==="daily");
-const coreDailyTracks = () => PLAN.tracks.filter(t=>t.cadence==="daily" && t.core);
+/* ---- Phases: the plan is 4 phases, each with its own task set. Resolve by DAY so
+       past days keep being scored against the phase that was active then. ---- */
+function phaseForDay(key){
+  const ps = PLAN.phases;
+  for (const p of ps){ if (key >= p.start && key <= p.end) return p; }
+  return key < ps[0].start ? ps[0] : ps[ps.length-1];   // clamp before/after the plan
+}
+function currentPhase(){ return phaseForDay(todayKey()); }
+// flat registry of every track across all phases (for display in backlog/progress)
+const ALL_TRACKS = {};
+PLAN.phases.forEach(p=>p.tracks.forEach(t=>{ if(!ALL_TRACKS[t.id]) ALL_TRACKS[t.id]=t; }));
+function trackById(id){ return ALL_TRACKS[id]; }
+const phaseTracks   = (key) => phaseForDay(key||todayKey()).tracks;
+const dailyTracks   = (key) => phaseTracks(key).filter(t=>t.cadence==="daily");
+const coreDailyTracks = (key) => phaseTracks(key).filter(t=>t.cadence==="daily" && t.core);
+const weeklyTracks  = (key) => phaseTracks(key).filter(t=>t.cadence && t.cadence.perWeek);
 
 /* ---- Hindi Slayer live progress (read-only feed from the Cloudflare Worker) ---- */
 let hindiData = null;
@@ -584,7 +786,7 @@ function isDone(dayKey, trackId){
   // Hindi today is auto-derived from her live app activity (shows instantly on every device)
   if (trackId === "hindi" && dayKey === todayKey() && hindiActiveToday()) return true;
   // Journaling is done when she hits her sentence goal that day
-  if (trackId === "journal"){ const t=track("journal"); return journalCount(dayKey) >= (t.goal||1); }
+  if (trackId === "journal"){ const t=trackById("journal"); return journalCount(dayKey) >= (t.goal||1); }
   const day = Store.state.completions[dayKey];
   return !!(day && day[trackId]);
 }
@@ -638,9 +840,9 @@ function academicCompletions(){
 }
 function totalRewardStars(){ return academicCompletions() + heartsTotal(); }
 
-/* a day's quota is "met" when all CORE daily tracks are done */
+/* a day's quota is "met" when all CORE daily tracks (for THAT day's phase) are done */
 function dayMet(dayKey){
-  return coreDailyTracks().every(t=>isDone(dayKey,t.id));
+  return coreDailyTracks(dayKey).every(t=>isDone(dayKey,t.id));
 }
 
 /* streak = consecutive met active-days ending yesterday/today */
@@ -661,7 +863,7 @@ function computeBacklog(){
   const days = activeDaysUpTo(todayKey()).filter(k=>k!==todayKey());
   const byTrack = {};
   days.forEach(k=>{
-    coreDailyTracks().forEach(t=>{
+    coreDailyTracks(k).forEach(t=>{
       if (!isDone(k,t.id)){ (byTrack[t.id]=byTrack[t.id]||[]).push(k); }
     });
   });
@@ -689,8 +891,11 @@ function chaptersComplete(){ return PLAN.beastChapters.filter(chapComplete).leng
 function currentChapter(){ return PLAN.beastChapters.find(c=>!chapComplete(c)) || PLAN.beastChapters[PLAN.beastChapters.length-1]; }
 
 const BEAST_EST = 20; // estimated lessons for chapters not yet detailed (for pacing)
-function activeDaysFrom(fromKey){
-  let d=parseYMD(fromKey>PLAN.startDate?fromKey:PLAN.startDate); const end=parseYMD(PLAN.endDate); let n=0;
+// Beast is only scheduled in some phases — pace toward the end of the LAST one that has it.
+function beastEndKey(){ let end=PLAN.startDate; PLAN.phases.forEach(p=>{ if(p.tracks.some(t=>t.id==="beast")) end=p.end; }); return end; }
+function activeDaysFrom(fromKey, endKey){
+  const E = endKey || PLAN.endDate;
+  let d=parseYMD(fromKey>PLAN.startDate?fromKey:PLAN.startDate); const end=parseYMD(E); let n=0;
   while(d<=end){ const k=ymd(d); if(inWindow(k)&&!isRestDay(d)) n++; d=addDays(d,1); }
   return n;
 }
@@ -703,7 +908,7 @@ function beastRemainingLessons(){
   return rem;
 }
 function beastDailyTarget(){
-  const days=activeDaysFrom(todayKey()), rem=beastRemainingLessons();
+  const days=activeDaysFrom(todayKey(), beastEndKey()), rem=beastRemainingLessons();
   return days>0 ? Math.max(1, Math.ceil(rem/days)) : rem;
 }
 function beastDoneToday(){
@@ -718,20 +923,26 @@ function beastDoneToday(){
 let view = "today";
 let editDay = todayKey();   // which day parent is editing
 let beastOpenChapter = null; // which chapter is expanded in the Beast view
+let roadmapPhase = null;     // which phase is open in the 🗺️ Plan tab (defaults to current)
+let roadmapTab = "math";     // math | ela | workbooks | schedule
 
-function track(id){ return PLAN.tracks.find(t=>t.id===id); }
+function track(id){ return phaseTracks(editDay).find(t=>t.id===id) || trackById(id); }
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
+function daysToNjsla(){ return Math.max(0, activeDaysUpTo(PLAN.njslaDate).length - activeDaysUpTo(todayKey()).length); }
 function renderHeader(){
-  document.getElementById("hName").textContent = PLAN.childName + "'s Summer";
-  document.getElementById("hDate").textContent = prettyDate(todayKey());
+  const ph = currentPhase();
+  document.getElementById("hName").textContent = PLAN.childName + "'s Year";
+  document.getElementById("hDate").textContent = prettyDate(todayKey()) + " · " + ph.icon + " " + ph.label;
   document.getElementById("streak").textContent = computeStreak();
   document.getElementById("starsTotal").textContent = daysCrushed();
   document.getElementById("booksDone").textContent = booksFinished();
   document.getElementById("booksGoal").textContent = PLAN.goals.booksTarget;
   document.getElementById("heartsCount").textContent = heartsTotal();
+  const ct = todayKey() >= PLAN.njslaDate ? "NJSLA time! 🎯" : daysToNjsla() + " days to NJSLA";
+  const njEl = document.getElementById("njslaCt"); if (njEl) njEl.textContent = ct;
 
-  const core = coreDailyTracks();
+  const core = coreDailyTracks(todayKey());
   const done = core.filter(t=>isDone(todayKey(),t.id)).length;
   document.getElementById("qCount").textContent = done+" / "+core.length;
   const pct = core.length ? Math.round(done/core.length*100) : 0;
@@ -778,8 +989,12 @@ function renderToday(){
     }
   }
 
+  const ph = phaseForDay(editDay);
+  html += `<div class="phaseBanner" style="border-color:${ph.color}55;background:${ph.color}12">
+      <span class="pbIcon">${ph.icon}</span>
+      <span><b>${ph.label}</b> · ${esc(ph.goal)}</span></div>`;
   html += `<h2 class="sec">${editDay===todayKey()?"Today's tasks":"Tasks"}</h2>`;
-  dailyTracks().forEach(t=>{
+  dailyTracks(editDay).forEach(t=>{
     const done = isDone(editDay,t.id);
     // Journaling = sentence counter (stepper); done when she reaches her goal
     if (t.id==="journal"){
@@ -826,8 +1041,8 @@ function renderToday(){
     </div>`;
   });
 
-  // weekly bonus tracks (e.g. Khan 3x/week)
-  const weekly = PLAN.tracks.filter(t=>t.cadence && t.cadence.perWeek);
+  // weekly bonus tracks (e.g. Khan 3x/week) — for this day's phase
+  const weekly = weeklyTracks(editDay);
   if (weekly.length){
     html += `<h2 class="sec">This week's bonus</h2>`;
     weekly.forEach(t=>{
@@ -913,7 +1128,7 @@ function renderBooks(){
   const pct = Math.min(100, Math.round(fin/PLAN.goals.booksTarget*100));
   const prevCount = Store.state.books.filter(b=>b.status==="prev").length;
   let html = `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink)">
-      <div class="qtop"><span>📚 New books finished this summer</span><span>${fin} / ${PLAN.goals.booksTarget}</span></div>
+      <div class="qtop"><span>📚 New books finished this year</span><span>${fin} / ${PLAN.goals.booksTarget}</span></div>
       <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${pct}%"></div></div>
       <div class="qmsg" style="color:var(--muted)">${Store.state.books.length} on her shelf${prevCount?` · ${prevCount} already-read (not counted)`:""}</div>
     </div>`;
@@ -971,28 +1186,34 @@ function renderBooks(){
 }
 
 function renderProgress(){
-  const totalActive = activeDaysUpTo(PLAN.endDate).length;
-  const elapsed = activeDaysUpTo(todayKey()).length;
+  const elapsedDays = activeDaysUpTo(todayKey());
+  const elapsed = elapsedDays.length;
   const crushed = daysCrushed();
   const rate = elapsed? Math.round(crushed/elapsed*100):0;
-  let html = `<h2 class="sec">Aria's summer so far</h2>
+  const njLeft = daysToNjsla();
+  let html = `<h2 class="sec">Aria's year so far</h2>
     <div class="stats">
       <div class="stat"><div class="n">${computeStreak()}</div><div class="l">🔥 Current streak (days)</div></div>
       <div class="stat"><div class="n">${crushed}</div><div class="l">⭐ Days quota crushed</div></div>
       <div class="stat"><div class="n">${rate}%</div><div class="l">📊 Quota hit-rate</div></div>
       <div class="stat"><div class="n">${booksFinished()}</div><div class="l">📚 Books finished</div></div>
       <div class="stat"><div class="n">${elapsed}</div><div class="l">📅 Learning days done</div></div>
-      <div class="stat"><div class="n">${Math.max(0,totalActive-elapsed)}</div><div class="l">⏳ Days left to Labor Day</div></div>
+      <div class="stat"><div class="n">${njLeft}</div><div class="l">🎯 Days left to NJSLA</div></div>
     </div>
-    <h2 class="sec">By subject (this summer)</h2>`;
-  dailyTracks().forEach(t=>{
-    let n=0; activeDaysUpTo(todayKey()).forEach(k=>{ if(isDone(k,t.id)) n++; });
-    const pct = elapsed? Math.round(n/elapsed*100):0;
+    <h2 class="sec">By subject (whole year so far)</h2>`;
+  // every daily track that has appeared in any phase, scored only over days it was scheduled
+  const dailyIds = []; PLAN.phases.forEach(p=>p.tracks.forEach(t=>{ if(t.cadence==="daily" && !dailyIds.includes(t.id)) dailyIds.push(t.id); }));
+  dailyIds.forEach(id=>{
+    const t = trackById(id);
+    let sched=0, done=0;
+    elapsedDays.forEach(k=>{ if (dailyTracks(k).some(x=>x.id===id)){ sched++; if(isDone(k,id)) done++; } });
+    if (!sched) return;   // not scheduled yet this year
+    const pct = Math.round(done/sched*100);
     html += `<div class="task">
       <div class="tIcon">${t.icon}</div>
       <div class="tBody"><div class="tLabel">${t.label}</div>
         <div class="qbar" style="background:var(--soft);margin-top:8px"><div class="qfill" style="width:${pct}%"></div></div></div>
-      <div style="font-weight:800;color:var(--teal)">${n}<span style="color:var(--muted);font-weight:600">/${elapsed}</span></div>
+      <div style="font-weight:800;color:var(--teal)">${done}<span style="color:var(--muted);font-weight:600">/${sched}</span></div>
     </div>`;
   });
   document.getElementById("main").innerHTML = html;
@@ -1010,7 +1231,7 @@ function renderBeast(){
       <div class="qtop"><span>Chapters complete this summer</span><span>${doneCh} / ${totalCh}</span></div>
       <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${Math.round(doneCh/totalCh*100)}%"></div></div>
     </div>`;
-  const tgt=beastDailyTarget(), today=beastDoneToday(), rem=beastRemainingLessons(), days=activeDaysFrom(todayKey());
+  const tgt=beastDailyTarget(), today=beastDoneToday(), rem=beastRemainingLessons(), days=activeDaysFrom(todayKey(), beastEndKey());
   html += `<div class="editHint" style="background:var(--tealL);border-color:#9fe0d8;color:#065f54">
       🎯 Auto-pace: aim for <b>${tgt} lesson${tgt>1?'s':''} today</b> · ${today} done · ${rem} left over ${days} learning days</div>`;
   if (Store.state.parentMode)
@@ -1238,9 +1459,86 @@ function renderHabits(){
   }
 }
 
+/* ---- 🗺️ Plan / Roadmap: the 4-phase year, standards, resources, schedule ---- */
+function resourceKey(phaseId, i){ return phaseId+"#"+i; }
+function resourceDone(phaseId, i){ return !!(Store.state.resources && Store.state.resources[resourceKey(phaseId,i)]); }
+function setResource(phaseId, i, val){
+  if (!Store.state.resources) Store.state.resources = {};
+  const k = resourceKey(phaseId,i);
+  if (val) Store.state.resources[k]=true; else delete Store.state.resources[k];
+  Store.save();
+}
+function renderRoadmap(){
+  const editing = Store.state.parentMode;
+  const curId = currentPhase().id;
+  if (!roadmapPhase) roadmapPhase = curId;
+  const ph = PLAN.phases.find(p=>p.id===roadmapPhase) || currentPhase();
+
+  // intro / NJSLA banner
+  let html = `<div class="phaseBanner" style="border-color:#9fe0d8;background:var(--tealL)">
+      <span class="pbIcon">🎯</span>
+      <span><b>NJSLA-Adaptive · Spring 2027.</b> Computer-adaptive ELA + Math (Grades 3–8): questions get harder as Aria succeeds, so fluency & flexible thinking matter most. Window opens <b>${prettyDate(PLAN.njslaDate)}</b> — ${daysToNjsla()} learning days away.</span>
+    </div>`;
+
+  // phase chips
+  html += `<div class="phaseNav">`;
+  PLAN.phases.forEach(p=>{
+    const on = p.id===roadmapPhase, isNow = p.id===curId;
+    html += `<button class="phaseChip${on?' on':''}" data-phase="${p.id}" style="${on?`background:${p.color};border-color:${p.color};color:#fff`:`border-color:${p.color}55;color:${p.color}`}">${p.icon} ${p.label}${isNow?' • now':''}</button>`;
+  });
+  html += `</div>`;
+
+  // phase header
+  html += `<div class="phaseHead" style="background:${ph.color}14;border-color:${ph.color}40">
+      <div class="phaseHTitle" style="color:${ph.color}">${ph.icon} ${ph.label} <span style="color:var(--muted);font-weight:600;font-size:14px">· ${esc(ph.subtitle)}</span></div>
+      <div style="font-size:14px;margin-top:4px">🎯 ${esc(ph.goal)}</div></div>`;
+
+  // sub-tabs
+  const tabs = [["math","📐 Math"],["ela","📖 ELA"],["workbooks","📦 Resources"],["schedule","🗓 Schedule"]];
+  html += `<div class="rmTabs">`;
+  tabs.forEach(([id,lbl])=>{ html += `<button class="rmTab${roadmapTab===id?' on':''}" data-rmtab="${id}" style="${roadmapTab===id?`border-color:${ph.color};color:${ph.color}`:''}">${lbl}</button>`; });
+  html += `</div>`;
+
+  // tab body
+  if (roadmapTab==="math" || roadmapTab==="ela"){
+    (roadmapTab==="math"?ph.math:ph.ela).forEach(item=>{
+      html += `<div class="rmItem" style="background:${ph.color}0d;border-color:${ph.color}22">
+        <span class="rmStd" style="background:${ph.color}">${esc(item.standard)}</span>
+        <div><div class="rmTopic">${esc(item.topic)}</div><div class="rmDesc">${esc(item.desc)}</div></div>
+      </div>`;
+    });
+  } else if (roadmapTab==="workbooks"){
+    html += `<div class="rmHint">${editing?"Tap a resource to mark it owned / in use.":"Resources Mom & Dad are using this phase."}</div>`;
+    ph.workbooks.forEach((wb,i)=>{
+      const got = resourceDone(ph.id,i);
+      html += `<div class="rmRes${got?' got':''}${editing?' editable':''}" data-res="${i}">
+        <div class="rmCheck${got?' on':''}">${got?'✓':''}</div>
+        <div style="flex:1"><div class="rmTopic">${esc(wb.name)}</div><div class="rmDesc">${esc(wb.note)}</div></div>
+        <div class="rmTags"><span class="rmTag" style="background:${ph.color}1a;color:${ph.color}">${esc(wb.type)}</span><span class="rmTag price">${esc(wb.price)}</span></div>
+      </div>`;
+    });
+  } else {
+    ph.schedule.forEach(s=>{
+      html += `<div class="rmItem" style="background:var(--soft);border-color:var(--line)">
+        <span class="rmDay" style="background:${ph.color}">${esc(s.day)}</span>
+        <div class="rmDesc" style="color:var(--ink)">${esc(s.activity)}</div></div>`;
+    });
+  }
+
+  document.getElementById("main").innerHTML = html;
+  document.querySelectorAll("[data-phase]").forEach(el=>{ el.onclick=()=>{ roadmapPhase=el.getAttribute("data-phase"); renderRoadmap(); }; });
+  document.querySelectorAll("[data-rmtab]").forEach(el=>{ el.onclick=()=>{ roadmapTab=el.getAttribute("data-rmtab"); renderRoadmap(); }; });
+  if (editing){
+    document.querySelectorAll("[data-res]").forEach(el=>{ el.onclick=()=>{
+      const i=+el.getAttribute("data-res"); setResource(ph.id,i,!resourceDone(ph.id,i)); renderRoadmap();
+    }; });
+  }
+}
+
 function render(){
   renderHeader();
   if (view==="today") renderToday();
+  else if (view==="roadmap") renderRoadmap();
   else if (view==="habits") renderHabits();
   else if (view==="books") renderBooks();
   else if (view==="beast") renderBeast();
