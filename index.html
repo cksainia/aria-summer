@@ -587,12 +587,12 @@ window.PLAN = {
     { id:"b20", series:"Magic Tree House (Graphic Novels)", title:"Mummies in the Morning", author:"Mary Pope Osborne", status:"unread", cover:"covers/b20.jpg" },
     { id:"b21", series:"Magic Tree House (Graphic Novels)", title:"Night of the Ninjas", author:"Mary Pope Osborne", status:"unread", cover:"covers/b21.jpg" },
     { id:"b22", series:"Magic Tree House (Graphic Novels)", title:"Afternoon on the Amazon", author:"Mary Pope Osborne", status:"unread", cover:"covers/b22.jpg" },
-    { id:"b23", series:"Magic Tree House (Graphic Novels)", title:"Sunset of the Sabertooth", author:"Mary Pope Osborne", status:"unread" },
+    { id:"b23", series:"Magic Tree House (Graphic Novels)", title:"Sunset of the Sabertooth", author:"Mary Pope Osborne", status:"unread", cover:"covers/b23.jpg" },
     { id:"b24", series:"Magic Tree House (Graphic Novels)", title:"Midnight on the Moon", author:"Mary Pope Osborne", status:"unread", cover:"covers/b24.jpg" },
     // Wings of Fire
     { id:"b17", series:"Wings of Fire", title:"Wings of Fire", author:"Tui T. Sutherland", status:"unread", cover:"covers/b17.jpg" },
     // Diary of a Wimpy Kid
-    { id:"b16", series:"Diary of a Wimpy Kid", title:"Partypooper", author:"Jeff Kinney", status:"unread" },
+    { id:"b16", series:"Diary of a Wimpy Kid", title:"Partypooper", author:"Jeff Kinney", status:"unread", cover:"covers/b16.jpg" },
   ],
 
   /* BEAST ACADEMY — Level 3, 12 chapters (3A–3D).
@@ -705,13 +705,13 @@ const Store = {
     if (!this.state.completions) this.state.completions = {};
     if (!this.state.habits) this.state.habits = {};
     if (!this.state.resources) this.state.resources = {};   // 🗺️ Plan tab: ticked workbooks/resources
-    // shelf from plan (preserves statuses by id across refreshes; v4 re-adds cover images)
-    if (!this.state.books || this.state.booksSeed !== 4){
+    // shelf from plan (preserves statuses by id across refreshes; v5 = new hi-res covers + covers for b16/b23)
+    if (!this.state.books || this.state.booksSeed !== 5){
       const prev = {}; (this.state.books||[]).forEach(b=>{ prev[b.id]=b.status; });
       this.state.books = JSON.parse(JSON.stringify(PLAN.books)).map(b=> prev[b.id] ? Object.assign(b,{status:prev[b.id]}) : b);
       if (this.state.booksSeed === undefined) // first-ever seed only: Amulet #1-7 finished
         ["b4","b5","b6","b7","b8","b44","b1"].forEach(id=>{ const bk=this.state.books.find(x=>x.id===id); if(bk) bk.status="finished"; });
-      this.state.booksSeed = 4; changed = true;
+      this.state.booksSeed = 5; changed = true;
     }
     // Beast progress from her real BA reports (v4: reset after a mis-tap scrambled today's dates)
     if (this.state.beastSeed !== 4){
