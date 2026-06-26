@@ -1369,7 +1369,12 @@ window.AriaSync = {
   role: "none",
   pushCloud(){
     if (this.role !== "parent") return;                     // only the parent writes
-    setDoc(famRef, Store.syncData(), { merge:true }).catch(e=>console.warn("cloud write failed:", e.message));
+    // NOTE: full-document write (NO merge). The doc is composed entirely of SYNC_FIELDS
+    // (all defined after migrate()), so a wholesale set is safe — and crucially it lets
+    // DELETIONS propagate. With { merge:true } Firestore deep-merges nested maps and never
+    // removes keys, so rolling back a Beast chapter never stuck (the cloud kept the cleared
+    // lessons and onSnapshot re-applied them, flickering back to "all complete").
+    setDoc(famRef, Store.syncData()).catch(e=>console.warn("cloud write failed:", e.message));
   },
   signOut(){ signOut(auth); },
 };
