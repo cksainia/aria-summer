@@ -221,6 +221,18 @@
   .rmTags{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;}
   .rmTag{border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap;}
   .rmTag.price{background:#F0F9F7;color:var(--teal);}
+  /* Daily screen-time unlocks */
+  .unlocks{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:12px 0;}
+  .unlockHead{font-weight:800;font-size:14px;margin-bottom:8px;}
+  .unlock{display:flex;align-items:center;gap:12px;border:1.5px dashed var(--line);border-radius:12px;
+    padding:10px 12px;margin-top:8px;background:var(--soft);opacity:.85;}
+  .unlock.on{border-style:solid;border-color:var(--green);background:var(--greenL);opacity:1;}
+  .unlock .uIcon{font-size:24px;width:34px;text-align:center;flex-shrink:0;}
+  .unlock .uBody{flex:1;}
+  .unlock .uLabel{font-weight:800;font-size:14px;}
+  .unlock .uSub{font-size:12px;color:var(--muted);margin-top:1px;}
+  .unlock.on .uSub{color:#065f46;font-weight:700;}
+  .unlock .uState{font-size:20px;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -310,6 +322,15 @@ window.PLAN = {
   hindiUrl:  "https://cksainia.github.io/hindi-garden/",
   hindiSyncCode: "d50574f432adedb2",   // read-only progress feed from Hindi Slayer
   goals: { booksTarget: 150 },
+
+  /* DAILY SCREEN-TIME UNLOCKS — earned fresh each day.
+     academics: unlocked once ALL core academic tasks are done. habits: unlocked once
+     EVERY habit is checked. (To make the Switch easier, set habits.need:"goal" to use
+     habitDailyGoal instead of all habits.) */
+  screenTime: {
+    academics: { icon:"📱", label:"1 hour iPad entertainment", need:"all" },
+    habits:    { icon:"🎮", label:"1 hour Nintendo Switch 2",   need:"all" },
+  },
 
   /* GOOD HABITS & HELPING (social-emotional side, parent-marked) */
   habitDailyGoal: 6,                   // hit this many -> "Helper of the Day" celebration
@@ -845,6 +866,21 @@ function dayMet(dayKey){
   return coreDailyTracks(dayKey).every(t=>isDone(dayKey,t.id));
 }
 
+/* ---- Daily screen-time unlocks ---- */
+function academicsProgress(dayKey){
+  const core = coreDailyTracks(dayKey);
+  const done = core.filter(t=>isDone(dayKey,t.id)).length;
+  return { done, total: core.length, met: done===core.length };
+}
+function habitsTarget(){ return PLAN.screenTime.habits.need==="goal" ? PLAN.habitDailyGoal : PLAN.habits.length; }
+function habitsProgress(dayKey){
+  const need = habitsTarget(), done = habitsDoneOn(dayKey);
+  return { done, total: need, met: done>=need };
+}
+function academicsUnlocked(dayKey){ return academicsProgress(dayKey).met; }
+function habitsUnlocked(dayKey){ return habitsProgress(dayKey).met; }
+function unlockToast(which){ const c=PLAN.screenTime[which]; showToast(c.icon+" Unlocked: "+c.label+"! 🎉"); }
+
 /* streak = consecutive met active-days ending yesterday/today */
 function computeStreak(){
   const days = activeDaysUpTo(todayKey());
@@ -974,6 +1010,28 @@ function renderHeader(){
   document.getElementById("parentBtn").textContent = Store.state.parentMode ? "👤 Parent ON" : "👤 Parent";
 }
 
+function unlockRow(cfg, prog, kindLabel){
+  const met = prog.met;
+  return `<div class="unlock${met?' on':''}">
+      <div class="uIcon">${cfg.icon}</div>
+      <div class="uBody">
+        <div class="uLabel">${esc(cfg.label)}</div>
+        <div class="uSub">${met ? "Unlocked! Enjoy 🎉" : `${prog.done}/${prog.total} ${kindLabel} done`}</div>
+      </div>
+      <div class="uState">${met?"🔓":"🔒"}</div>
+    </div>`;
+}
+function renderUnlocksHTML(dayKey){
+  const st = PLAN.screenTime;
+  const a = academicsProgress(dayKey), h = habitsProgress(dayKey);
+  const title = dayKey===todayKey() ? "Today's screen-time unlocks" : "Screen-time unlocks";
+  return `<div class="unlocks">
+      <div class="unlockHead">🎁 ${title}</div>
+      ${unlockRow(st.academics, a, "school tasks")}
+      ${unlockRow(st.habits, h, "habits")}
+    </div>`;
+}
+
 function renderToday(){
   const editing = Store.state.parentMode;
   const d = parseYMD(editDay);
@@ -1011,6 +1069,7 @@ function renderToday(){
   html += `<div class="phaseBanner" style="border-color:${ph.color}55;background:${ph.color}12">
       <span class="pbIcon">${ph.icon}</span>
       <span><b>${ph.label}</b> · ${esc(ph.goal)}</span></div>`;
+  html += renderUnlocksHTML(editDay);
   html += `<h2 class="sec">${editDay===todayKey()?"Today's tasks":"Tasks"}</h2>`;
   dailyTracks(editDay).forEach(t=>{
     const done = isDone(editDay,t.id);
@@ -1091,7 +1150,7 @@ function renderToday(){
       setJournalCount(editDay, journalCount(editDay)+delta);
       const nowMet = editDay===todayKey() && dayMet(editDay);
       renderHeader(); renderToday();
-      if (!wasMet && nowMet) celebrate();
+      if (!wasMet && nowMet){ celebrate(); unlockToast("academics"); }
     };
     const ji=document.querySelector("[data-jinc]"); if(ji) ji.onclick=()=>jStep(1);
     const jd=document.querySelector("[data-jdec]"); if(jd) jd.onclick=()=>jStep(-1);
@@ -1104,7 +1163,7 @@ function renderToday(){
       setJournalCount(editDay,num);
       const nowMet=editDay===todayKey()&&dayMet(editDay);
       renderHeader(); renderToday();
-      if(!wasMet&&nowMet) celebrate();
+      if(!wasMet&&nowMet){ celebrate(); unlockToast("academics"); }
     };
   }
 }
@@ -1130,7 +1189,7 @@ function wireToggles(){
       setDone(editDay,id,!was);
       const nowMet = editDay===todayKey() && dayMet(editDay);
       renderHeader(); renderToday();
-      if (!wasMet && nowMet) celebrate();
+      if (!wasMet && nowMet){ celebrate(); unlockToast("academics"); }
     });
   });
 }
@@ -1456,6 +1515,7 @@ function renderHabits(){
       <div class="qmsg" style="color:var(--muted)">${allR ? "🍿 All "+totR+" movie nights earned — incredible summer!" : intoNext+"/"+per+" stars to your next movie night (school stars + habit hearts)"}</div>
     </div>`;
 
+  html += renderUnlocksHTML(t);
   html += `<h2 class="sec">Today's habits</h2>`;
   PLAN.habits.forEach(h=>{
     const d = habitDone(t,h.id);
@@ -1484,11 +1544,14 @@ function renderHabits(){
       el.addEventListener("click",()=>{
         const id=el.getAttribute("data-habit"), was=habitDone(t,id);
         const beforeGoal = habitsDoneOn(t) >= goal;
+        const beforeUnlock = habitsUnlocked(t);
         setHabit(t,id,!was);
         if (!was){ const h=PLAN.habits.find(x=>x.id===id); showToast((h.praise||"Great job!") ); }
         const afterGoal = habitsDoneOn(t) >= goal;
+        const afterUnlock = habitsUnlocked(t);
         renderHeader(); renderHabits();
-        if (!beforeGoal && afterGoal) celebrate();
+        if ((!beforeGoal && afterGoal) || (!beforeUnlock && afterUnlock)) celebrate();
+        if (!beforeUnlock && afterUnlock) unlockToast("habits");   // 🎮 Switch unlocked (overrides praise toast)
       });
     });
   }
