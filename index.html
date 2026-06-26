@@ -241,7 +241,7 @@
     <div class="chips">
       <div class="chip">🔥 <span id="streak">0</span>-day streak</div>
       <div class="chip">⭐ <span id="starsTotal">0</span> days crushed</div>
-      <div class="chip">📚 <span id="booksDone">0</span>/<span id="booksGoal">50</span> books</div>
+      <div class="chip">📚 <span id="booksDone">0</span>/<span id="booksGoal">150</span> books</div>
       <div class="chip">❤️ <span id="heartsCount">0</span> hearts</div>
       <div class="chip">🎯 <span id="njslaCt">—</span></div>
     </div>
@@ -309,7 +309,7 @@ window.PLAN = {
   parentPin: "2468",            // change me
   hindiUrl:  "https://cksainia.github.io/hindi-garden/",
   hindiSyncCode: "d50574f432adedb2",   // read-only progress feed from Hindi Slayer
-  goals: { booksTarget: 50 },
+  goals: { booksTarget: 150 },
 
   /* GOOD HABITS & HELPING (social-emotional side, parent-marked) */
   habitDailyGoal: 6,                   // hit this many -> "Helper of the Day" celebration
@@ -870,7 +870,25 @@ function computeBacklog(){
   return byTrack; // { trackId: [dayKeys...] }
 }
 
-function booksFinished(){ return Store.state.books.filter(b=>b.status==="finished").length; }
+// genre + format per series (derived; no need to tag every book)
+const SERIES_META = {
+  "Amulet":                            { genre:"Fantasy-Adventure",    format:"graphic" },
+  "Wings of Fire":                     { genre:"Fantasy-Adventure",    format:"graphic" },
+  "Dog Man":                           { genre:"Humor",                format:"graphic" },
+  "Cat Kid Comic Club":                { genre:"Humor",                format:"graphic" },
+  "Diary of a Wimpy Kid":              { genre:"Humor",                format:"chapter" },
+  "The Baby-Sitters Club":             { genre:"Realistic Fiction",    format:"graphic" },
+  "Magic Tree House (Graphic Novels)": { genre:"Educational Adventure",format:"graphic" },
+  "Magic Tree House (Chapter Books)":  { genre:"Educational Adventure",format:"chapter" },
+};
+const GENRE_ICON = { "Fantasy-Adventure":"🐉", "Humor":"😂", "Educational Adventure":"🌍", "Realistic Fiction":"👫", "Other":"📘" };
+function bookMeta(b){ return SERIES_META[b.series] || { genre:"Other", format:"chapter" }; }
+function bookGenre(b){ return bookMeta(b).genre; }
+function bookFormat(b){ return bookMeta(b).format; }
+function bookRead(b){ return b.status==="finished" || b.status==="prev"; }   // read this year (incl. already-read)
+
+function booksFinished(){ return Store.state.books.filter(b=>b.status==="finished").length; } // finished-this-period only (drives the celebration)
+function booksReadThisYear(){ return Store.state.books.filter(bookRead).length; }              // counts toward the 150 goal (incl. already-read)
 
 /* ---- Beast Academy ---- */
 function beastChap(num){ return PLAN.beastChapters.find(c=>c.num===num); }
@@ -936,7 +954,7 @@ function renderHeader(){
   document.getElementById("hDate").textContent = prettyDate(todayKey()) + " · " + ph.icon + " " + ph.label;
   document.getElementById("streak").textContent = computeStreak();
   document.getElementById("starsTotal").textContent = daysCrushed();
-  document.getElementById("booksDone").textContent = booksFinished();
+  document.getElementById("booksDone").textContent = booksReadThisYear();
   document.getElementById("booksGoal").textContent = PLAN.goals.booksTarget;
   document.getElementById("heartsCount").textContent = heartsTotal();
   const ct = todayKey() >= PLAN.njslaDate ? "NJSLA time! 🎯" : daysToNjsla() + " days to NJSLA";
@@ -1124,17 +1142,35 @@ function wireDayNav(){
 
 function renderBooks(){
   const editing = Store.state.parentMode;
-  const fin = booksFinished();
-  const pct = Math.min(100, Math.round(fin/PLAN.goals.booksTarget*100));
+  const read = booksReadThisYear();
+  const pct = Math.min(100, Math.round(read/PLAN.goals.booksTarget*100));
   const prevCount = Store.state.books.filter(b=>b.status==="prev").length;
   let html = `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink)">
-      <div class="qtop"><span>📚 New books finished this year</span><span>${fin} / ${PLAN.goals.booksTarget}</span></div>
+      <div class="qtop"><span>📚 Books read this year</span><span>${read} / ${PLAN.goals.booksTarget}</span></div>
       <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${pct}%"></div></div>
-      <div class="qmsg" style="color:var(--muted)">${Store.state.books.length} on her shelf${prevCount?` · ${prevCount} already-read (not counted)`:""}</div>
+      <div class="qmsg" style="color:var(--muted)">${Store.state.books.length} on her shelf${prevCount?` · incl. ${prevCount} already-read (count toward the year, not daily stars)`:""}</div>
     </div>`;
 
+  // ── genre + format breakdown (books she's READ: finished or already-read) ──
+  const readBooks = Store.state.books.filter(bookRead);
+  if (readBooks.length){
+    const byGenre = {};
+    readBooks.forEach(b=>{ const g=bookGenre(b); byGenre[g]=(byGenre[g]||0)+1; });
+    const gn = readBooks.filter(b=>bookFormat(b)==="graphic").length;
+    const cb = readBooks.filter(b=>bookFormat(b)==="chapter").length;
+    html += `<h2 class="sec">By format</h2><div class="stats">
+        <div class="stat"><div class="n">${gn}</div><div class="l">🖼️ Graphic novels</div></div>
+        <div class="stat"><div class="n">${cb}</div><div class="l">📖 Chapter books</div></div>
+      </div>`;
+    html += `<h2 class="sec">By genre</h2><div class="stats">`;
+    Object.keys(byGenre).sort((a,b)=>byGenre[b]-byGenre[a]).forEach(g=>{
+      html += `<div class="stat"><div class="n">${byGenre[g]}</div><div class="l">${GENRE_ICON[g]||"📘"} ${esc(g)}</div></div>`;
+    });
+    html += `</div>`;
+  }
+
   if (editing){
-    html += `<div class="editHint">✏️ Tap a cover to cycle: To read → Reading → Finished → Already-read (✦ doesn't count).</div>`;
+    html += `<div class="editHint">✏️ Tap a cover to cycle: To read → Reading → Finished ✓ → Already-read ✦. Already-read books count toward the year total but don't trigger a daily star.</div>`;
     html += `<button class="btn ghost" id="bulkPrev" style="width:100%;margin-bottom:12px">📖 Mark all “To read” as already-read</button>`;
   }
 
@@ -1144,9 +1180,8 @@ function renderBooks(){
   const STATUS_LABEL = { unread:"To read", reading:"Reading 📖", finished:"Finished ✓", prev:"Already-read ✦" };
   groups.forEach(s=>{
     const arr=map[s];
-    const f=arr.filter(b=>b.status==="finished").length;
-    const summerTotal=arr.filter(b=>b.status!=="prev").length;   // books that count this summer
-    html += `<h2 class="sec">${esc(s)} · ${f}/${summerTotal}</h2><div class="bookGrid">`;
+    const readN=arr.filter(bookRead).length;   // finished + already-read
+    html += `<h2 class="sec">${esc(s)} · ${readN}/${arr.length}</h2><div class="bookGrid">`;
     arr.forEach(b=>{
       const cls = b.status==="finished" ? "fin" : b.status==="reading" ? "read" : b.status==="prev" ? "prev" : "unr";
       const img = b.cover
@@ -1196,7 +1231,7 @@ function renderProgress(){
       <div class="stat"><div class="n">${computeStreak()}</div><div class="l">🔥 Current streak (days)</div></div>
       <div class="stat"><div class="n">${crushed}</div><div class="l">⭐ Days quota crushed</div></div>
       <div class="stat"><div class="n">${rate}%</div><div class="l">📊 Quota hit-rate</div></div>
-      <div class="stat"><div class="n">${booksFinished()}</div><div class="l">📚 Books finished</div></div>
+      <div class="stat"><div class="n">${booksReadThisYear()}</div><div class="l">📚 Books read this year</div></div>
       <div class="stat"><div class="n">${elapsed}</div><div class="l">📅 Learning days done</div></div>
       <div class="stat"><div class="n">${njLeft}</div><div class="l">🎯 Days left to NJSLA</div></div>
     </div>
