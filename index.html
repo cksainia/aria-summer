@@ -554,7 +554,7 @@ window.PLAN = {
     { id:"b15", series:"The Baby-Sitters Club", title:"Boy-Crazy Stacey", author:"Ann M. Martin", status:"unread", cover:"covers/b15.jpg" },
     // Magic Tree House — Chapter Books #1-28 (ordered, the reading ladder)
     { id:"mth1",  series:"Magic Tree House (Chapter Books)", title:"#1: Dinosaurs Before Dark", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth1.jpg" },
-    { id:"mth2",  series:"Magic Tree House (Chapter Books)", title:"#2: The Knight at Dawn", author:"Mary Pope Osborne", status:"unread" },
+    { id:"mth2",  series:"Magic Tree House (Chapter Books)", title:"#2: The Knight at Dawn", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth2.jpg" },
     { id:"mth3",  series:"Magic Tree House (Chapter Books)", title:"#3: Mummies in the Morning", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth3.jpg" },
     { id:"mth4",  series:"Magic Tree House (Chapter Books)", title:"#4: Pirates Past Noon", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth4.jpg" },
     { id:"mth5",  series:"Magic Tree House (Chapter Books)", title:"#5: Night of the Ninjas", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth5.jpg" },
@@ -897,13 +897,13 @@ const Store = {
     if (!this.state.habits) this.state.habits = {};
     if (!this.state.resources) this.state.resources = {};   // 🗺️ Plan tab: ticked workbooks/resources
     if (!this.state.ixl) this.state.ixl = { items:{} };     // IXL skills mastered ("secIdx:skillIdx" -> date)
-    // shelf from plan (preserves statuses by id across refreshes; v5 = new hi-res covers + covers for b16/b23)
-    if (!this.state.books || this.state.booksSeed !== 5){
+    // shelf from plan (preserves statuses by id across refreshes; v6 = MTH chapter-book covers + mth2)
+    if (!this.state.books || this.state.booksSeed !== 6){
       const prev = {}; (this.state.books||[]).forEach(b=>{ prev[b.id]=b.status; });
       this.state.books = JSON.parse(JSON.stringify(PLAN.books)).map(b=> prev[b.id] ? Object.assign(b,{status:prev[b.id]}) : b);
       if (this.state.booksSeed === undefined) // first-ever seed only: Amulet #1-7 finished
         ["b4","b5","b6","b7","b8","b44","b1"].forEach(id=>{ const bk=this.state.books.find(x=>x.id===id); if(bk) bk.status="finished"; });
-      this.state.booksSeed = 5; changed = true;
+      this.state.booksSeed = 6; changed = true;
     }
     // Beast: SEED ONCE ONLY. Initialise the baseline the first time this account is set up;
     // NEVER overwrite real progress on later loads/deploys. (Earlier this re-ran on every
