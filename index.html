@@ -878,7 +878,7 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl"]; // what lives in the cloud doc
+const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
   state: null,
   load(){
@@ -934,6 +934,26 @@ const Store = {
     const m = this.migrate();
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.state)); } catch(e){}
     return m;
+  },
+  // ONE-TIME Beast baseline restore (after the June 26 cloud wipe). Runs AFTER the cloud is
+  // applied; only fills in the baseline if she has NO beast progress yet, and only once
+  // (beastRestore marker, synced). Won't clobber lessons re-entered by hand. Returns true if changed.
+  restoreBeastBaseline(){
+    if (this.state.beastRestore === 1) return false;
+    if (!this.state.beast) this.state.beast = { items:{}, chap:{} };
+    if (Object.keys(this.state.beast.items).length === 0){
+      Object.assign(this.state.beast.items, {
+        "1:0":"2026-05-27","1:1":"2026-05-27","1:2":"2026-05-28","1:3":"2026-05-28","1:4":"2026-05-30",
+        "1:5":"2026-06-03","1:6":"2026-06-03","1:7":"2026-06-04","1:8":"2026-06-16","1:9":"2026-06-02",
+        "1:10":"2026-06-01","1:11":"2026-06-01","1:12":"2026-06-07","1:13":"2026-06-02","1:14":"2026-06-07",
+        "1:15":"2026-06-07","1:16":"2026-06-09","1:17":"2026-06-16","1:18":"2026-06-02",
+        "2:0":"2026-06-02","2:1":"2026-06-02","2:2":"2026-06-02",
+        "2:3":"2026-06-17","2:4":"2026-06-17","2:5":"2026-06-23",
+      });
+    }
+    this.state.beastRestore = 1;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.state)); } catch(e){}
+    return true;
   },
 };
 window.Store = Store;
@@ -2069,13 +2089,14 @@ function startSync(){
   unsub = onSnapshot(famRef, (snap)=>{
     if (!snap.exists()){
       cloudLoaded = true;   // doc genuinely absent → safe to initialise it from this device
-      if (role === "parent") setDoc(famRef, Store.syncData()).catch(e=>console.warn(e.message)); // first-run init
+      if (role === "parent"){ Store.restoreBeastBaseline(); setDoc(famRef, Store.syncData()).catch(e=>console.warn(e.message)); } // first-run init
       window.render && window.render();
       return;
     }
     const migrated = Store.applyCloud(snap.data());   // cloud is source of truth — merge it in first
     cloudLoaded = true;                                // now writes are allowed
-    if (migrated && role === "parent") window.AriaSync.pushCloud();   // push forward any version bump
+    const restored = (role === "parent") ? Store.restoreBeastBaseline() : false;   // one-time baseline refill
+    if ((migrated || restored) && role === "parent") window.AriaSync.pushCloud();   // push version bump / restore
     window.render && window.render();
   }, (err)=> console.warn("snapshot error:", err.message));
 }
