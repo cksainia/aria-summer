@@ -2267,35 +2267,43 @@ window.AriaSync = {
   role: "none",
   pushCloud(){
     if (this.role !== "parent") return;                     // only the parent writes
-    if (!cloudLoaded) return;                                // READ-BEFORE-WRITE: never overwrite the cloud
-                                                            // until we've loaded it once this session. Stops a
-                                                            // stale/empty local state (common right after a deploy
-                                                            // or on a 2nd device) from clobbering real progress.
-    // NOTE: full-document write (NO merge). The doc is composed entirely of SYNC_FIELDS
-    // (all defined after migrate()), so a wholesale set is safe — and crucially it lets
-    // DELETIONS propagate. With { merge:true } Firestore deep-merges nested maps and never
-    // removes keys, so rolling back a Beast chapter never stuck (the cloud kept the cleared
-    // lessons and onSnapshot re-applied them, flickering back to "all complete").
-    setDoc(famRef, Store.syncData()).catch(e=>console.warn("cloud write failed:", e.message));
+    if (!cloudLoaded) return;                                // READ-BEFORE-WRITE (once per session)
+    // Full-document write (NO merge) so deletions propagate. Surface success/failure in the
+    // header so a rejected write (e.g. Firestore rules) is visible instead of silently reverting.
+    setDoc(famRef, Store.syncData())
+      .then(()=> syncStatus(true))
+      .catch(e=>{ console.warn("cloud write failed:", e.message); syncStatus(false, e.message); });
   },
   signOut(){ signOut(auth); },
 };
 
+function syncStatus(ok, msg){
+  const sd = document.getElementById("syncDot"); if (!sd) return;
+  if (ok){ if (window.ROLE) sd.textContent = "☁️ Live sync on · signed in as " + (window.ROLE==="parent" ? "Parent" : "Aria"); }
+  else sd.textContent = "⚠️ Sync write failed — " + (msg || "unknown error");
+}
+
 function startSync(){
   if (unsub) return;
+  // Safety net: if Firestore never delivers a first snapshot, still enable writes so the app
+  // can't get permanently stuck read-only (writes were being silently dropped when cloudLoaded
+  // never flipped — e.g. a delayed/errored first snapshot).
+  const enableTimer = setTimeout(()=>{ cloudLoaded = true; }, 8000);
   unsub = onSnapshot(famRef, (snap)=>{
+    clearTimeout(enableTimer);
+    cloudLoaded = true;                                // a snapshot arrived → we've read the cloud, writes are safe
     if (!snap.exists()){
-      cloudLoaded = true;   // doc genuinely absent → safe to initialise it from this device
       if (role === "parent"){ Store.restoreBeastBaseline(); setDoc(famRef, Store.syncData()).catch(e=>console.warn(e.message)); } // first-run init
       window.render && window.render();
       return;
     }
-    const migrated = Store.applyCloud(snap.data());   // cloud is source of truth — merge it in first
-    cloudLoaded = true;                                // now writes are allowed
+    let migrated = false;
+    try { migrated = Store.applyCloud(snap.data()); }   // cloud is source of truth
+    catch(e){ console.warn("applyCloud failed:", e); }  // never let a bad doc wedge sync
     const restored = (role === "parent") ? Store.restoreBeastBaseline() : false;   // one-time baseline refill
     if ((migrated || restored) && role === "parent") window.AriaSync.pushCloud();   // push version bump / restore
     window.render && window.render();
-  }, (err)=> console.warn("snapshot error:", err.message));
+  }, (err)=>{ console.warn("snapshot error:", err.message); syncStatus(false, "read error: "+err.message); });
 }
 
 onAuthStateChanged(auth, (user)=>{
