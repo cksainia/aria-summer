@@ -221,6 +221,16 @@
   .rmTags{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;}
   .rmTag{border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap;}
   .rmTag.price{background:#F0F9F7;color:var(--teal);}
+  /* Barcode scanner */
+  .scanView{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:12px;overflow:hidden;}
+  .scanView video{width:100%;height:100%;object-fit:cover;display:block;}
+  .scanLine{position:absolute;left:8%;right:8%;top:50%;height:2px;background:var(--coral);box-shadow:0 0 8px var(--coral);animation:scanpulse 1.4s ease-in-out infinite;}
+  @keyframes scanpulse{0%,100%{transform:translateY(-28px);opacity:.5}50%{transform:translateY(28px);opacity:1}}
+  .scanMsg{font-size:13px;color:var(--muted);margin-top:8px;min-height:18px;text-align:center;}
+  .scanMsg.err{color:var(--coral);font-weight:700;}
+  .scanMsg.ok{color:var(--green);font-weight:700;}
+  .addCov{width:92px;height:136px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:34px;border:1px solid var(--line);}
+  .addCov img{width:100%;height:100%;object-fit:cover;}
   /* Daily screen-time unlocks */
   .unlocks{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:12px 0;}
   .unlockHead{font-weight:800;font-size:14px;margin-bottom:8px;}
@@ -293,6 +303,48 @@
 
 <div class="confetti hidden" id="confetti"></div>
 
+<!-- Barcode scanner / add-book -->
+<div class="modal" id="scanModal" role="dialog" aria-modal="true" aria-label="Scan a book">
+  <div class="sheet" style="max-width:400px">
+    <div id="scanStage">
+      <h3 style="margin:0 0 4px">📷 Scan a book</h3>
+      <p style="margin:0 0 12px;color:var(--muted);font-size:14px">Point the camera at the barcode on the back cover.</p>
+      <div class="scanView"><video id="scanVideo" playsinline muted></video><div class="scanLine"></div></div>
+      <div id="scanMsg" class="scanMsg">Starting camera…</div>
+      <div style="margin-top:10px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:5px">…or type the ISBN by hand:</div>
+        <div style="display:flex;gap:8px">
+          <input id="isbnIn" class="siIn" style="margin:0;flex:1" inputmode="numeric" placeholder="ISBN (10 or 13 digits)">
+          <button class="btn primary" id="isbnGo" style="max-width:96px">Look up</button>
+        </div>
+      </div>
+      <button class="btn ghost" id="scanCancel" style="width:100%;margin-top:12px">Close</button>
+    </div>
+    <div id="addStage" style="display:none">
+      <h3 style="margin:0 0 10px">Add this book?</h3>
+      <div style="display:flex;gap:12px;margin-bottom:12px">
+        <div class="addCov"><img id="addCover" alt=""><span id="addCoverFallback" style="display:none">📖</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+          <input id="addTitle" class="siIn" style="margin:0" placeholder="Title">
+          <input id="addAuthor" class="siIn" style="margin:0" placeholder="Author">
+          <div style="display:flex;gap:6px">
+            <select id="addGenre" class="siIn" style="margin:0;flex:1;padding:8px"></select>
+            <select id="addFormat" class="siIn" style="margin:0;padding:8px">
+              <option value="graphic">Graphic novel</option>
+              <option value="chapter">Chapter book</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="addMsg" class="scanMsg" style="min-height:0"></div>
+      <div class="row" style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn ghost" id="addBack">‹ Scan again</button>
+        <button class="btn primary" id="addSave">Add to shelf</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Sign-in gate -->
 <div class="signin" id="signin" role="dialog" aria-modal="true" aria-label="Sign in to Aria's Summer">
   <div class="siCard">
@@ -322,6 +374,10 @@ window.PLAN = {
   hindiUrl:  "https://cksainia.github.io/hindi-garden/",
   hindiSyncCode: "c867b6b56885a93c",   // read-only progress feed from Hindi Slayer
   goals: { booksTarget: 150 },
+  // Optional Claude fallback for the barcode scanner when the book databases miss.
+  // Leave "" to use databases + manual entry only. To enable Claude, deploy the
+  // book-lookup-worker (holds the Anthropic key server-side) and put its URL here.
+  bookLookupProxy: "",
 
   /* DAILY SCREEN-TIME UNLOCKS — earned fresh each day.
      academics: unlocked once ALL core academic tasks are done. habits: unlocked once
@@ -902,8 +958,12 @@ const Store = {
     if (!this.state.ixl.items) this.state.ixl.items = {};
     // shelf from plan (preserves statuses by id across refreshes; v6 = MTH chapter-book covers + mth2)
     if (!this.state.books || this.state.booksSeed !== 6){
-      const prev = {}; (this.state.books||[]).forEach(b=>{ prev[b.id]=b.status; });
-      this.state.books = JSON.parse(JSON.stringify(PLAN.books)).map(b=> prev[b.id] ? Object.assign(b,{status:prev[b.id]}) : b);
+      const prevBooks = this.state.books || [];
+      const prev = {}; prevBooks.forEach(b=>{ prev[b.id]=b.status; });
+      const rebuilt = JSON.parse(JSON.stringify(PLAN.books)).map(b=> prev[b.id] ? Object.assign(b,{status:prev[b.id]}) : b);
+      const planIds = new Set(PLAN.books.map(b=>b.id));
+      const scanned = prevBooks.filter(b=> b.added && !planIds.has(b.id));   // KEEP user-scanned books across rebuilds
+      this.state.books = rebuilt.concat(scanned);
       if (this.state.booksSeed === undefined) // first-ever seed only: Amulet #1-7 finished
         ["b4","b5","b6","b7","b8","b44","b1"].forEach(id=>{ const bk=this.state.books.find(x=>x.id===id); if(bk) bk.status="finished"; });
       this.state.booksSeed = 6; changed = true;
@@ -1148,7 +1208,10 @@ const SERIES_META = {
   "Magic Tree House (Chapter Books)":  { genre:"Educational Adventure",format:"chapter" },
 };
 const GENRE_ICON = { "Fantasy-Adventure":"🐉", "Humor":"😂", "Educational Adventure":"🌍", "Realistic Fiction":"👫", "Other":"📘" };
-function bookMeta(b){ return SERIES_META[b.series] || { genre:"Other", format:"chapter" }; }
+function bookMeta(b){
+  if (b.genre || b.format) return { genre: b.genre||"Other", format: b.format||"chapter" }; // scanned books carry their own
+  return SERIES_META[b.series] || { genre:"Other", format:"chapter" };
+}
 function bookGenre(b){ return bookMeta(b).genre; }
 function bookFormat(b){ return bookMeta(b).format; }
 function bookRead(b){ return b.status==="finished" || b.status==="prev"; }   // read this year (incl. already-read)
@@ -1482,6 +1545,7 @@ function renderBooks(){
 
   if (editing){
     html += `<div class="editHint">✏️ Tap a cover to cycle: To read → Reading → Finished ✓ → Already-read ✦. Already-read books count toward the year total but don't trigger a daily star.</div>`;
+    html += `<button class="btn primary" id="scanBook" style="width:100%;margin-bottom:8px">📷 Scan a book (add by barcode)</button>`;
     html += `<button class="btn ghost" id="bulkPrev" style="width:100%;margin-bottom:12px">📖 Mark all “To read” as already-read</button>`;
   }
 
@@ -1511,6 +1575,8 @@ function renderBooks(){
 
   document.getElementById("main").innerHTML = html;
   if (editing){
+    const sb=document.getElementById("scanBook");
+    if (sb) sb.onclick=openScanner;
     const bp=document.getElementById("bulkPrev");
     if (bp) bp.onclick=()=>{
       let n=0; Store.state.books.forEach(b=>{ if(b.status==="unread"){ b.status="prev"; n++; } });
@@ -1982,6 +2048,121 @@ function celebrate(){
   c.classList.remove("hidden");
   setTimeout(()=>c.classList.add("hidden"),2600);
 }
+
+/* ============================================================
+   BARCODE SCANNER — add a book by ISBN (parent only)
+   Lookup: Open Library -> Google Books -> optional Claude proxy -> manual.
+   Scanned books live in synced state.books with added:true (migrate keeps them).
+   ============================================================ */
+const GENRES = ["Fantasy-Adventure","Humor","Educational Adventure","Realistic Fiction","Other"];
+let zxReader=null, scanBusy=false, currentScan=null, _zxPromise=null;
+function loadZXing(){
+  if (window.ZXing) return Promise.resolve();
+  if (_zxPromise) return _zxPromise;
+  _zxPromise = new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js";
+    s.onload=res; s.onerror=()=>rej(new Error("scanner failed to load"));
+    document.head.appendChild(s);
+  });
+  return _zxPromise;
+}
+function setScanMsg(t,cls){ const el=document.getElementById("scanMsg"); if(el){ el.textContent=t; el.className="scanMsg"+(cls?" "+cls:""); } }
+function setAddMsg(t,cls){ const el=document.getElementById("addMsg"); if(el){ el.textContent=t; el.className="scanMsg"+(cls?" "+cls:""); } }
+function normISBN(s){ return (s||"").replace(/[^0-9Xx]/g,"").toUpperCase(); }
+function populateGenres(){
+  const sel=document.getElementById("addGenre"); if(!sel || sel.options.length) return;
+  GENRES.forEach(g=>{ const o=document.createElement("option"); o.value=g; o.textContent=(GENRE_ICON[g]||"📘")+" "+g; sel.appendChild(o); });
+}
+async function lookupISBN(isbn){
+  isbn=normISBN(isbn);
+  if (isbn.length!==10 && isbn.length!==13) return { error:"That doesn't look like a book ISBN (need 10 or 13 digits)." };
+  // 1) Open Library
+  try {
+    const r=await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=title,author_name,cover_i&limit=1`);
+    if (r.ok){ const doc=((await r.json()).docs||[])[0];
+      if (doc && doc.title) return { isbn, title:doc.title, author:(doc.author_name||[])[0]||"",
+        cover: doc.cover_i?`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg?default=false`:"", source:"Open Library" }; }
+  } catch(e){}
+  // 2) Google Books
+  try {
+    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&country=US`);
+    if (r.ok){ const v=(((await r.json()).items||[])[0]||{}).volumeInfo;
+      if (v && v.title){ let cover=((v.imageLinks||{}).thumbnail||"").replace(/^http:/,"https:");
+        const cats=(v.categories||[]).join(" ").toLowerCase();
+        return { isbn, title:v.title, author:(v.authors||[])[0]||"", cover, format:/comic|graphic/.test(cats)?"graphic":"chapter", source:"Google Books" }; }
+    }
+  } catch(e){}
+  // 3) optional Claude proxy (server-side; key never in the client)
+  if (PLAN.bookLookupProxy){
+    try {
+      const r=await fetch(PLAN.bookLookupProxy,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({isbn})});
+      if (r.ok){ const d=await r.json(); if (d && d.title) return { isbn, title:d.title, author:d.author||"", cover:d.cover||"", genre:d.genre, format:d.format, source:"Claude" }; }
+    } catch(e){}
+  }
+  return { isbn, notFound:true };
+}
+function showAddStage(info){
+  currentScan=info;
+  document.getElementById("scanStage").style.display="none";
+  document.getElementById("addStage").style.display="";
+  document.getElementById("addTitle").value=info.title||"";
+  document.getElementById("addAuthor").value=info.author||"";
+  populateGenres();
+  document.getElementById("addGenre").value=info.genre||"Other";
+  document.getElementById("addFormat").value=info.format||"chapter";
+  const img=document.getElementById("addCover"), fb=document.getElementById("addCoverFallback");
+  if (info.cover){ img.style.display=""; fb.style.display="none"; img.onerror=()=>{ img.style.display="none"; fb.style.display=""; }; img.src=info.cover; }
+  else { img.removeAttribute("src"); img.style.display="none"; fb.style.display=""; }
+  setAddMsg(info.notFound ? "Not found in the databases — type the details in." : "Found via "+info.source+" — check & save.", info.notFound?"":"ok");
+}
+async function handleScannedText(text){
+  if (scanBusy) return;
+  const isbn=normISBN(text);
+  if (isbn.length!==10 && isbn.length!==13) return;   // ignore non-ISBN barcodes silently
+  scanBusy=true; stopScanner(); setScanMsg("Looking up "+isbn+"…");
+  const info=await lookupISBN(isbn); scanBusy=false;
+  if (info.error){ setScanMsg(info.error,"err"); return; }
+  showAddStage(info);
+}
+function startDecode(){
+  const video=document.getElementById("scanVideo");
+  try { zxReader=new ZXing.BrowserMultiFormatReader(); } catch(e){ setScanMsg("Scanner unavailable — type the ISBN below.","err"); return; }
+  const cb=(result)=>{ if(result) handleScannedText(result.getText()); };
+  const p = zxReader.decodeFromConstraints
+    ? zxReader.decodeFromConstraints({ video:{ facingMode:{ ideal:"environment" } } }, video, cb)
+    : zxReader.decodeFromVideoDevice(null, video, cb);
+  Promise.resolve(p).then(()=>setScanMsg("Point at the barcode…")).catch(()=>setScanMsg("Couldn't open the camera — type the ISBN below.","err"));
+}
+function stopScanner(){ if (zxReader){ try{ zxReader.reset(); }catch(e){} zxReader=null; } }
+async function openScanner(){
+  const m=document.getElementById("scanModal");
+  document.getElementById("addStage").style.display="none";
+  document.getElementById("scanStage").style.display="";
+  document.getElementById("isbnIn").value=""; populateGenres();
+  scanBusy=false; m.classList.add("show"); setScanMsg("Starting camera…");
+  try { await loadZXing(); startDecode(); }
+  catch(e){ setScanMsg("Scanner couldn't load — type the ISBN below.","err"); }
+}
+function closeScanner(){ stopScanner(); document.getElementById("scanModal").classList.remove("show"); }
+function addScannedBook(){
+  const title=document.getElementById("addTitle").value.trim();
+  if (!title){ setAddMsg("Please enter a title.","err"); return; }
+  const isbn=(currentScan&&currentScan.isbn)||"";
+  if (isbn && Store.state.books.some(b=>b.isbn===isbn)){ setAddMsg("That book is already on her shelf.","err"); return; }
+  const book={ id:"scan_"+(isbn||Date.now()), series:"New Arrivals 📷", title,
+    author:document.getElementById("addAuthor").value.trim(), status:"unread",
+    cover:(currentScan&&currentScan.cover)||"", isbn,
+    genre:document.getElementById("addGenre").value, format:document.getElementById("addFormat").value, added:true };
+  Store.state.books.push(book); Store.save();
+  closeScanner(); view="books"; render();
+  showToast("Added “"+title+"” 📚");
+}
+document.getElementById("scanCancel").addEventListener("click", closeScanner);
+document.getElementById("addBack").addEventListener("click", openScanner);
+document.getElementById("addSave").addEventListener("click", addScannedBook);
+document.getElementById("isbnGo").addEventListener("click", ()=>handleScannedText(document.getElementById("isbnIn").value));
+document.getElementById("isbnIn").addEventListener("keydown", e=>{ if(e.key==="Enter") handleScannedText(e.target.value); });
 
 /* ============================================================
    NAV + PARENT MODE
