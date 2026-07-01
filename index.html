@@ -366,7 +366,7 @@ window.PLAN = {
         { id:"reading", icon:"📚", label:"Reading",          target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
         { id:"beast",   icon:"🧮", label:"Beast Academy",    target:"25 min",         kind:"task",     core:true,  cadence:"daily" },
         { id:"journal", icon:"✍️", label:"Journaling",       unit:"sentences", goal:20, kind:"count",   core:true,  cadence:"daily" },
-        { id:"hindi",   icon:"🪷", label:"Hindi Slayer",     target:"Earn 2 ⭐",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+        { id:"hindi",   icon:"🪷", label:"Hindi Slayer",     target:"Complete Daily Path",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
         { id:"ixl",     icon:"📊", label:"IXL (Math + ELA)", target:"4 skills",       kind:"task",     core:true,  cadence:"daily" },
         { id:"khan",    icon:"➕", label:"Khan Grade 4",      target:"15 min",         kind:"task",     core:false, cadence:{ perWeek:3 } },
       ],
@@ -404,7 +404,7 @@ window.PLAN = {
       tracks:[
         { id:"reading",  icon:"📚", label:"Reading",          target:"Read your book", kind:"book",     core:true,  cadence:"daily" },
         { id:"journal",  icon:"✍️", label:"Journaling",       unit:"sentences", goal:20, kind:"count",   core:true,  cadence:"daily" },
-        { id:"hindi",    icon:"🪷", label:"Hindi Slayer",     target:"Earn 2 ⭐",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+        { id:"hindi",    icon:"🪷", label:"Hindi Slayer",     target:"Complete Daily Path",       kind:"external", core:true,  cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
         { id:"ixl",      icon:"📊", label:"IXL Math",         target:"4 skills",       kind:"task",     core:true,  cadence:"daily" },
         { id:"lumosEla", icon:"📝", label:"Lumos ELA",        target:"25 min",         kind:"task",     core:true,  cadence:"daily" },
         { id:"beast",    icon:"🧮", label:"Beast Academy",    target:"Finish 3A–3D",   kind:"task",     core:false, cadence:"daily" },
@@ -444,7 +444,7 @@ window.PLAN = {
       tracks:[
         { id:"reading",   icon:"📚", label:"Reading",            target:"Read your book", kind:"book",  core:true,  cadence:"daily" },
         { id:"journal",   icon:"✍️", label:"Journaling",         unit:"sentences", goal:20, kind:"count", core:true, cadence:"daily" },
-        { id:"hindi",     icon:"🪷", label:"Hindi Slayer",       target:"Earn 2 ⭐",       kind:"external", core:true, cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+        { id:"hindi",     icon:"🪷", label:"Hindi Slayer",       target:"Complete Daily Path",       kind:"external", core:true, cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
         { id:"njslaMath", icon:"📐", label:"NJSLA Math practice", target:"15 min",         kind:"task",  core:true,  cadence:"daily" },
         { id:"njslaEla",  icon:"📖", label:"NJSLA ELA practice",  target:"15 min",         kind:"task",  core:true,  cadence:"daily" },
         { id:"reflex",    icon:"⚡", label:"Reflex Math facts",   target:"10 min",         kind:"task",  core:false, cadence:{ perWeek:3 } },
@@ -481,7 +481,7 @@ window.PLAN = {
       tracks:[
         { id:"reading", icon:"📚", label:"Reading",            target:"Read for fun",   kind:"book",  core:true,  cadence:"daily" },
         { id:"journal", icon:"✍️", label:"Journaling",         unit:"sentences", goal:20, kind:"count", core:true, cadence:"daily" },
-        { id:"hindi",   icon:"🪷", label:"Hindi Slayer",       target:"Earn 2 ⭐",       kind:"external", core:true, cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
+        { id:"hindi",   icon:"🪷", label:"Hindi Slayer",       target:"Complete Daily Path",       kind:"external", core:true, cadence:"daily", link:"https://cksainia.github.io/hindi-garden/" },
         { id:"simMath", icon:"🎯", label:"Math practice unit",  target:"1 unit + facts", kind:"task",  core:true,  cadence:"daily" },
         { id:"simEla",  icon:"🖊️", label:"ELA practice unit",   target:"1 unit + essay", kind:"task",  core:true,  cadence:"daily" },
         { id:"fullSim", icon:"🏁", label:"Full simulation test", target:"Weekend (2.5 hr)", kind:"task", core:false, cadence:{ perWeek:1 } },
@@ -997,29 +997,40 @@ const coreDailyTracks = (key) => phaseTracks(key).filter(t=>t.cadence==="daily" 
 const weeklyTracks  = (key) => phaseTracks(key).filter(t=>t.cadence && t.cadence.perWeek);
 
 /* ---- Hindi Slayer live progress (read-only feed from the Cloudflare Worker) ---- */
-let hindiData = null;
+let hindiData = null;     // the "-sum" summary snapshot (level/words/skills for the detail screen)
+let hindiPath = null;     // the raw feed's pathDone map: { "YYYY-MM-DD": true } — Daily Path completions
 try { const c = localStorage.getItem("hindiSnap"); if (c) hindiData = JSON.parse(c); } catch(e){}
-const HINDI_URL = "https://hindi-hop-sync.chitresh.workers.dev/?code=" + encodeURIComponent(PLAN.hindiSyncCode + "-sum");
+try { const c = localStorage.getItem("hindiPath"); if (c) hindiPath = JSON.parse(c); } catch(e){}
+const HINDI_URL     = "https://hindi-hop-sync.chitresh.workers.dev/?code=" + encodeURIComponent(PLAN.hindiSyncCode + "-sum");
+const HINDI_RAW_URL = "https://hindi-hop-sync.chitresh.workers.dev/?code=" + encodeURIComponent(PLAN.hindiSyncCode);
 function hindiActiveToday(){ return !!(hindiData && hindiData.lastActive === todayKey()); }
+// Hindi task = she COMPLETED THE DAILY PATH today (guided session), not just "opened the app"
+function hindiPathDoneToday(){ return !!(hindiPath && hindiPath[todayKey()] === true); }
 async function fetchHindi(){
   try {
-    const r = await fetch(HINDI_URL, { cache:"no-store" });
-    if (!r.ok) return;
-    const data = await r.json();
-    if (!data || data.app !== "hindi-slayer") return;   // null = not synced yet
-    hindiData = data;
-    try { localStorage.setItem("hindiSnap", JSON.stringify(data)); } catch(e){}
-    // parent records today's Hindi completion so it persists for streak/history
+    const [sumR, rawR] = await Promise.all([
+      fetch(HINDI_URL,     { cache:"no-store" }),
+      fetch(HINDI_RAW_URL, { cache:"no-store" }),
+    ]);
+    if (sumR.ok){
+      const data = await sumR.json();
+      if (data && data.app === "hindi-slayer"){ hindiData = data; try { localStorage.setItem("hindiSnap", JSON.stringify(data)); } catch(e){} }
+    }
+    if (rawR.ok){
+      const raw = await rawR.json();
+      if (raw && raw.pathDone && typeof raw.pathDone === "object"){ hindiPath = raw.pathDone; try { localStorage.setItem("hindiPath", JSON.stringify(hindiPath)); } catch(e){} }
+    }
+    // parent records today's Hindi completion (Daily Path done) so it persists for streak/history
     const t = todayKey();
     const stored = Store.state.completions[t] && Store.state.completions[t].hindi;
-    if (window.ROLE === "parent" && data.lastActive === t && !stored) setDone(t, "hindi", true);
+    if (window.ROLE === "parent" && hindiPathDoneToday() && !stored) setDone(t, "hindi", true);
     render();
   } catch(e){ /* offline / worker down -> keep last cached snapshot */ }
 }
 
 function isDone(dayKey, trackId){
-  // Hindi today is auto-derived from her live app activity (shows instantly on every device)
-  if (trackId === "hindi" && dayKey === todayKey() && hindiActiveToday()) return true;
+  // Hindi today is auto-derived from her Daily Path completion (guided session) in the app
+  if (trackId === "hindi" && dayKey === todayKey() && hindiPathDoneToday()) return true;
   // Journaling is done when she hits her sentence goal that day
   if (trackId === "journal"){ const t=trackById("journal"); return journalCount(dayKey) >= (t.goal||1); }
   const day = Store.state.completions[dayKey];
@@ -1730,7 +1741,7 @@ function renderHindi(){
     return;
   }
 
-  const h = hindiData, activeToday = hindiActiveToday();
+  const h = hindiData, pathToday = hindiPathDoneToday();
   // headline card
   html += `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink)">
       <div class="qtop"><span>Level ${h.level} · ${esc(h.levelName)}</span><span>⭐ ${h.stars}</span></div>
@@ -1745,8 +1756,8 @@ function renderHindi(){
       <div class="stat"><div class="n">${h.lastQuizPct==null?"—":h.lastQuizPct+"%"}</div><div class="l">📝 Last quiz (${h.quizzesTaken} taken)</div></div>
     </div>`;
   // freshness / today flag
-  html += `<div class="editHint" style="${activeToday?'background:var(--greenL);border-color:#9fe7c4;color:#065f46':'background:var(--goldL);border-color:#f0d28a;color:#7a5500'}">
-      ${activeToday ? "✓ Practiced today — Hindi quota met!" : "Not practiced today yet · last active "+(h.lastActive||"never")}</div>`;
+  html += `<div class="editHint" style="${pathToday?'background:var(--greenL);border-color:#9fe7c4;color:#065f46':'background:var(--goldL);border-color:#f0d28a;color:#7a5500'}">
+      ${pathToday ? "✓ Daily Path done today — Hindi quota met!" : "Daily Path not done yet today · last active "+(h.lastActive||"never")}</div>`;
 
   // skills bars (only show > 0, then the rest greyed)
   const skills = Object.entries(h.skills||{}).sort((a,b)=>b[1]-a[1]);
