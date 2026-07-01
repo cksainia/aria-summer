@@ -896,7 +896,10 @@ const Store = {
     if (!this.state.completions) this.state.completions = {};
     if (!this.state.habits) this.state.habits = {};
     if (!this.state.resources) this.state.resources = {};   // 🗺️ Plan tab: ticked workbooks/resources
-    if (!this.state.ixl) this.state.ixl = { items:{} };     // IXL skills mastered ("secIdx:skillIdx" -> date)
+    // IXL skills mastered ("secIdx:skillIdx" -> date). Guard the .items map too, so a partial
+    // cloud doc (ixl present but no items) can't crash ixlSkillsDone()/the Today render.
+    if (!this.state.ixl || typeof this.state.ixl !== "object") this.state.ixl = { items:{} };
+    if (!this.state.ixl.items) this.state.ixl.items = {};
     // shelf from plan (preserves statuses by id across refreshes; v6 = MTH chapter-book covers + mth2)
     if (!this.state.books || this.state.booksSeed !== 6){
       const prev = {}; (this.state.books||[]).forEach(b=>{ prev[b.id]=b.status; });
@@ -908,7 +911,9 @@ const Store = {
     // Beast: SEED ONCE ONLY. Initialise the baseline the first time this account is set up;
     // NEVER overwrite real progress on later loads/deploys. (Earlier this re-ran on every
     // version mismatch and wiped her lessons back to baseline — a deploy must keep progress.)
-    if (!this.state.beast) this.state.beast = { items:{}, chap:{} };
+    if (!this.state.beast || typeof this.state.beast !== "object") this.state.beast = { items:{}, chap:{} };
+    if (!this.state.beast.items) this.state.beast.items = {};   // guard partial cloud docs
+    if (!this.state.beast.chap)  this.state.beast.chap  = {};
     if (this.state.beastSeed === undefined){
       Object.assign(this.state.beast.items, {
         "1:0":"2026-05-27","1:1":"2026-05-27","1:2":"2026-05-28","1:3":"2026-05-28","1:4":"2026-05-30",
