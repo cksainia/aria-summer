@@ -51,6 +51,13 @@
   .qbar{height:10px;background:rgba(255,255,255,.2);border-radius:99px;margin-top:9px;overflow:hidden;}
   .qfill{height:100%;background:linear-gradient(90deg,#FFE27A,#E8A020);border-radius:99px;transition:width .5s cubic-bezier(.2,.7,.2,1);}
   .qmsg{font-size:12px;opacity:.9;margin-top:8px;}
+  /* header status row: academic quota + habits mini, side by side */
+  .statusRow{display:flex;gap:10px;align-items:stretch;}
+  .statusRow .quota{flex:1;min-width:0;}
+  .statusRow .qmsg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .habitMini{background:linear-gradient(160deg,#DB2777 0%,#9D174D 60%,#7C3AED 130%);
+    border-color:rgba(255,255,255,.28);cursor:pointer;}
+  .habitMini .qfill{background:linear-gradient(90deg,#FFD24A,#fff);}
 
   /* Sections */
   h2.sec{font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--muted);
@@ -319,10 +326,17 @@
       <div class="chip">❤️ <span id="heartsCount">0</span> hearts</div>
       <div class="chip">🎯 <span id="njslaCt">—</span></div>
     </div>
-    <div class="quota">
-      <div class="qtop"><span>Today's quota</span><span id="qCount">0 / 0</span></div>
-      <div class="qbar"><div class="qfill" id="qFill" style="width:0%"></div></div>
-      <div class="qmsg" id="qMsg">Let's get started! ✨</div>
+    <div class="statusRow">
+      <div class="quota">
+        <div class="qtop"><span>Today's quota</span><span id="qCount">0 / 0</span></div>
+        <div class="qbar"><div class="qfill" id="qFill" style="width:0%"></div></div>
+        <div class="qmsg" id="qMsg">Let's get started! ✨</div>
+      </div>
+      <div class="quota habitMini" id="habitMini" role="button" title="Open Habits">
+        <div class="qtop"><span>❤️ Good Habits</span><span id="hmCount">0 / 6</span></div>
+        <div class="qbar"><div class="qfill" id="hmFill" style="width:0%"></div></div>
+        <div class="qmsg" id="hmMsg">Kindness counts! 💛</div>
+      </div>
     </div>
     <div class="syncDot" id="syncDot">💾 Saved on this device · sync not connected yet</div>
   </div>
@@ -1000,8 +1014,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v17 · reward-picker";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 17;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v18 · header-habits";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 18;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -1433,6 +1447,16 @@ function renderHeader(){
             : done<core.length ? `Great going — ${core.length-done} to go!`
             : "🎉 Quota crushed! You did everything today!";
   document.getElementById("qMsg").textContent = msg;
+
+  // habits mini card (always TODAY, mirrors the old pink hero)
+  const hDone = habitsDoneOn(todayKey()), hGoal = PLAN.habitDailyGoal;
+  const hc = document.getElementById("hmCount");
+  if (hc){
+    hc.textContent = hDone + " / " + hGoal;
+    document.getElementById("hmFill").style.width = Math.min(100, Math.round(hDone/hGoal*100)) + "%";
+    document.getElementById("hmMsg").textContent =
+      hDone >= hGoal ? "🌟 Helper of the Day!" : (hDone ? "Keep going! 💛" : "Kindness counts! 💛");
+  }
 
   document.getElementById("parentBtn").classList.toggle("on", Store.state.parentMode);
   document.getElementById("parentBtn").textContent = Store.state.parentMode ? "👤 Parent ON" : "👤 Parent";
@@ -2083,15 +2107,10 @@ function renderHabits(){
       <div class="lbl">${prettyDate(t)}</div>
       <button id="dNext">›</button></div>`;
   }
-  html += `<div class="habitHero">
-      <div style="font-size:13px;letter-spacing:1.5px;text-transform:uppercase;opacity:.8">Good Habits &amp; Helping</div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px">
-        <div style="font-size:22px;font-weight:800">${done}/${goal} ${isToday?"today":"that day"}</div>
-        <div class="heartChip">❤️ ${heartsTotal()} hearts</div>
-      </div>
-      <div class="qbar" style="background:rgba(255,255,255,.25);margin-top:10px"><div class="qfill" style="width:${Math.min(100,Math.round(done/goal*100))}%;background:linear-gradient(90deg,#FFD24A,#fff)"></div></div>
-      <div style="font-size:12px;opacity:.95;margin-top:8px">${done>=goal ? "🌟 Helper of the Day — amazing!" : (done? "Keep going — kindness counts! 💛" : (isToday?"Let's have a great day! 💛":"Marking for "+prettyDate(t)))}</div>
-    </div>`;
+  // (the big pink hero moved into the header as the compact "habits mini" card;
+  //  only show a slim per-day counter here when the parent is reviewing a PAST day)
+  if (!isToday)
+    html += `<div class="editHint" style="background:#FCE7F3;border-color:#F9A8D4;color:#9D174D">❤️ ${done}/${goal} habits on ${prettyDate(t)}</div>`;
 
   const stars = totalRewardStars(), per = PLAN.reward.perReward, totR = PLAN.reward.totalRewards;
   const earnedR = Math.min(totR, Math.floor(stars/per));
@@ -2405,6 +2424,14 @@ document.querySelectorAll("nav button").forEach(b=>{
     render();
   });
 });
+// tapping the header's habits mini jumps to the Habits tab
+(function(){
+  const hm=document.getElementById("habitMini");
+  if (hm) hm.addEventListener("click",()=>{
+    const b=document.querySelector('nav button[data-view="habits"]');
+    if (b) b.click();
+  });
+})();
 
 const pinModal=document.getElementById("pinModal");
 document.getElementById("parentBtn").addEventListener("click",()=>{
