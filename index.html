@@ -234,6 +234,13 @@
   .scanMsg.ok{color:var(--green);font-weight:700;}
   .addCov{width:92px;height:136px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:34px;border:1px solid var(--line);}
   .addCov img{width:100%;height:100%;object-fit:cover;}
+  /* Version gate banner */
+  .updateBar{display:none;position:fixed;top:0;left:0;right:0;z-index:60;background:#1A2E4A;color:#fff;
+    padding:12px 16px;font-size:14px;font-weight:700;align-items:center;justify-content:center;gap:12px;
+    flex-wrap:wrap;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.35);}
+  .updateBar.show{display:flex;}
+  .updateBar button{background:var(--gold);color:#3a2a00;border:none;border-radius:10px;padding:9px 18px;
+    font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;}
   /* Daily screen-time unlocks */
   .unlocks{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:12px 0;}
   .unlockHead{font-weight:800;font-size:14px;margin-bottom:8px;}
@@ -290,6 +297,12 @@
 </nav>
 
 <div id="toast" class="toast"></div>
+
+<!-- Version gate: shown when a newer build is live; syncing pauses until refresh -->
+<div id="updateBar" class="updateBar" role="alert">
+  <span>🔄 A new version of the tracker is available — syncing is paused on this tab.</span>
+  <button id="updateBtn">Update now</button>
+</div>
 
 <!-- PIN modal -->
 <div class="modal" id="pinModal" role="dialog" aria-modal="true" aria-label="Parent mode PIN">
@@ -937,7 +950,9 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v10 · long-poll";   // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_VERSION = "v11 · version-gate";   // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 11;                       // ALWAYS bump together with version.json — the version gate compares these
+window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
   state: null,
@@ -2278,6 +2293,39 @@ appShellInert(true);   // keep app inert/hidden until authenticated — render +
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
+
+/* ============================================================
+   VERSION GATE — stops any stale tab from ever syncing again.
+   Every deploy bumps version.json; each tab compares it to its own
+   APP_BUILD on load, on tab-focus, and every 5 min. On mismatch:
+   pause all pushes, show the update banner, auto-reload Aria's view.
+   ============================================================ */
+async function checkVersion(){
+  try {
+    const r = await fetch("version.json?cb=" + Date.now(), { cache:"no-store" });
+    if (!r.ok) return;
+    const v = await r.json();
+    if (!(v && typeof v.build === "number") || v.build <= window.APP_BUILD) return;
+    window.STALE = true;                                   // module's pushCloud/pushClaims check this
+    const bar = document.getElementById("updateBar"); if (bar) bar.classList.add("show");
+    const sd = document.getElementById("syncDot");
+    if (sd) sd.textContent = "⚠️ Old version — syncing paused. Tap Update now above.";
+    // Aria's view auto-updates itself; parent gets the banner (don't yank the rug mid-entry).
+    // Loop guard: at most one auto-reload per 10 minutes, in case a cache serves stale HTML.
+    const last = +(localStorage.getItem("lastAutoReload") || 0);
+    if (!Store.state.parentMode && Date.now() - last > 10*60*1000){
+      localStorage.setItem("lastAutoReload", String(Date.now()));
+      setTimeout(()=> location.reload(), 1500);
+    }
+  } catch(e){ /* offline — try again next cycle */ }
+}
+document.getElementById("updateBtn").addEventListener("click", ()=>{
+  localStorage.setItem("lastAutoReload", String(Date.now()));
+  location.reload();
+});
+setInterval(checkVersion, 5*60*1000);
+document.addEventListener("visibilitychange", ()=>{ if (!document.hidden) checkVersion(); });
+checkVersion();
 </script>
 
 <script type="module">
@@ -2319,6 +2367,7 @@ window.AriaSync = {
   role: "none",
   pushCloud(){
     if (this.role !== "parent") return;                     // only the parent writes
+    if (window.STALE) return;                                // VERSION GATE: stale tabs never write
     if (!cloudLoaded) return;                                // READ-BEFORE-WRITE (once per session)
     // Debounced full-document write (NO merge, so deletions propagate). The debounce coalesces
     // bursts (bulk-marking books = 1 write, not 30) and is the first line of defense against
@@ -2333,6 +2382,7 @@ window.AriaSync = {
   },
   pushClaims(){
     if (this.role === "none") return;                       // signed-in family members only
+    if (window.STALE) return;                                // VERSION GATE: stale tabs never write
     if (!claimsLoaded){ claimsPendingPush = true; return; } // QUEUE (don't drop) taps made before first snapshot
     clearTimeout(claimsPushTimer);
     claimsPushTimer = setTimeout(()=>{
