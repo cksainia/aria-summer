@@ -1041,8 +1041,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v19 · cover-fixer";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 19;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v20 · cover-fixer";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 20;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -2460,17 +2460,27 @@ function probeImg(url, ms){
     im.src=url;
   });
 }
+const covWait = ms => new Promise(r=>setTimeout(r,ms));
+async function gbooksItems(q){
+  // Google rate-limits by IP pretty aggressively — on 429, back off once and retry
+  for (let attempt=0; attempt<2; attempt++){
+    try {
+      const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&country=US&maxResults=5&printType=books`);
+      if (r.ok) return ((await r.json()).items)||[];
+      if (r.status!==429) return [];
+    } catch(e){ return []; }
+    if (attempt===0) await covWait(15000);
+  }
+  return [];
+}
 async function findCoverFor(b){
   // 1) Google Books — by ISBN when we have one, else title+author
   try {
     const q = b.isbn ? `isbn:${normISBN(b.isbn)}`
                      : `intitle:"${b.title}"`+(b.author?` inauthor:"${b.author}"`:"");
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&country=US&maxResults=5&printType=books`);
-    if (r.ok){
-      for (const it of ((await r.json()).items||[])){
-        const c=(((it.volumeInfo||{}).imageLinks||{}).thumbnail||"").replace(/^http:/,"https:");
-        if (c && await probeImg(c)) return { cover:c, source:"Google Books" };
-      }
+    for (const it of await gbooksItems(q)){
+      const c=(((it.volumeInfo||{}).imageLinks||{}).thumbnail||"").replace(/^http:/,"https:");
+      if (c && await probeImg(c)) return { cover:c, source:"Google Books" };
     }
   } catch(e){}
   // 2) Claude proxy (server-side key — never in the client)
@@ -2482,14 +2492,9 @@ async function findCoverFor(b){
         const d=await r.json();
         if (d && d.cover && await probeImg(d.cover)) return { cover:d.cover, source:"Claude" };
         if (d && d.isbn){   // Claude pinned the ISBN — try Google's image for it
-          try {
-            const g=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${normISBN(d.isbn)}&country=US`);
-            if (g.ok){
-              const v=(((await g.json()).items||[])[0]||{}).volumeInfo||{};
-              const c=((v.imageLinks||{}).thumbnail||"").replace(/^http:/,"https:");
-              if (c && await probeImg(c)) return { cover:c, source:"Claude + Google" };
-            }
-          } catch(e){}
+          const v=((await gbooksItems(`isbn:${normISBN(d.isbn)}`))[0]||{}).volumeInfo||{};
+          const c=((v.imageLinks||{}).thumbnail||"").replace(/^http:/,"https:");
+          if (c && await probeImg(c)) return { cover:c, source:"Claude + Google" };
         }
       }
     } catch(e){}
@@ -2552,6 +2557,7 @@ async function runCoverSearch(){
     }
     msg.textContent=`Searching… ${done}/${ids.length}`;
     if (found) Store.save();   // save as we go — a mid-run tab close keeps what's found
+    if (done<ids.length) await covWait(1200);   // pace requests so Google doesn't 429 the batch
   }
   let final=`Done — updated ${found} of ${ids.length} cover${ids.length!==1?"s":""}.`;
   if (found<ids.length){
