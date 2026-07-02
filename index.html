@@ -937,7 +937,7 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v9 · storm-fix";   // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_VERSION = "v10 · long-poll";   // bump each deploy; shown in the sync line so we can tell what a device is running
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
   state: null,
@@ -2287,7 +2287,7 @@ if ("serviceWorker" in navigator) {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, setDoc }
+import { initializeFirestore, doc, onSnapshot, setDoc }
   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -2303,7 +2303,10 @@ const ARIA_UID   = "O93lhqGLBye4TLzYrREpRaEBm972";
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db   = getFirestore(app);
+// LONG-POLLING transport, forced. On this family's network the SDK's default streaming
+// write channel HANGS (writes never ack) while long-polling round-trips in <500ms —
+// verified live on 2026-07-02. Do not revert to getFirestore(app) without re-testing writes.
+const db   = initializeFirestore(app, { experimentalForceLongPolling: true });
 const famRef = doc(db, "families", "aria");
 const claimsRef = doc(db, "families", "aria-claims");   // Aria's self-marks (she can write this doc)
 let role = "none", unsub = null, claimsUnsub = null, claimsLoaded = false, claimsPendingPush = false;
