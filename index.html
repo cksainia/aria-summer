@@ -73,7 +73,10 @@
   .check{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);background:#fff;
     flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;cursor:default;}
   .check.done{background:var(--green);border-color:var(--green);}
+  .check.claim{background:var(--goldL);border-color:var(--gold);color:var(--gold);border-style:dashed;} /* Aria claimed, awaiting parent confirm */
   .check.editable{cursor:pointer;border-color:var(--teal);}
+  .claimBadge{display:inline-block;font-size:11px;font-weight:800;color:#8a5a00;background:var(--goldL);
+    border:1px solid #f0d28a;border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:middle;}
   .goBtn{background:var(--violetL);color:var(--violet);border:none;border-radius:10px;
     padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer;text-decoration:none;display:inline-block;}
 
@@ -956,6 +959,10 @@ const Store = {
     // cloud doc (ixl present but no items) can't crash ixlSkillsDone()/the Today render.
     if (!this.state.ixl || typeof this.state.ixl !== "object") this.state.ixl = { items:{} };
     if (!this.state.ixl.items) this.state.ixl.items = {};
+    // Aria's SELF-MARKS ("claims") — separate from confirmed data; synced via its own doc, NOT SYNC_FIELDS.
+    if (!this.state.claims || typeof this.state.claims !== "object") this.state.claims = { comp:{}, hab:{} };
+    if (!this.state.claims.comp) this.state.claims.comp = {};
+    if (!this.state.claims.hab)  this.state.claims.hab  = {};
     // shelf from plan (preserves statuses by id across refreshes; v6 = MTH chapter-book covers + mth2)
     if (!this.state.books || this.state.booksSeed !== 6){
       const prevBooks = this.state.books || [];
@@ -1124,6 +1131,18 @@ function setHabit(dayKey, id, val){
   Store.save();
 }
 function habitsDoneOn(dayKey){ return PLAN.habits.filter(h=>habitDone(dayKey,h.id)).length; }
+
+/* ---- Aria's self-marks ("claims"): she taps "I did it"; parent confirms for rewards ---- */
+function ariaCanClaim(){ return window.ROLE === "aria" && !Store.state.parentMode; }   // Aria's own view only
+function claimComp(dayKey, id){ const d=Store.state.claims.comp[dayKey]; return !!(d && d[id]); }
+function claimHab(dayKey, id){ const d=Store.state.claims.hab[dayKey]; return !!(d && d[id]); }
+function setClaim(kind, dayKey, id, val){
+  const bucket = kind==="hab" ? Store.state.claims.hab : Store.state.claims.comp;
+  if (!bucket[dayKey]) bucket[dayKey] = {};
+  if (val) bucket[dayKey][id] = true; else delete bucket[dayKey][id];
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(Store.state)); } catch(e){}
+  if (window.AriaSync) window.AriaSync.pushClaims();
+}
 function heartsTotal(){ let n=0; const H=Store.state.habits||{}; for(const d in H) n+=Object.keys(H[d]).length; return n; }
 function habitWeekCount(id){ const start=parseYMD(weekStartKey(todayKey())); let n=0; for(let i=0;i<7;i++){ if(habitDone(ymd(addDays(start,i)),id)) n++; } return n; }
 function badgeEarned(b){
@@ -1402,7 +1421,8 @@ function renderToday(){
       </div>`;
       return;
     }
-    const checkCls = "check"+(done?" done":"")+(editing?" editable":"");
+    const claimed = claimComp(editDay, t.id), canClaim = ariaCanClaim() && editDay===todayKey();
+    const checkCls = "check"+(done?" done":(claimed?" claim":""))+((editing||canClaim)?" editable":"");
     let sub = t.target, extra = "";
     if (t.id==="beast"){
       const ch=currentChapter(), tgt=beastDailyTarget(), today=beastDoneToday();
@@ -1420,14 +1440,15 @@ function renderToday(){
     } else if (t.kind==="external"){
       extra = `<a class="goBtn" href="${t.link}" target="_blank" rel="noopener">Open ▸</a>`;
     }
+    const claimTag = (claimed && !done) ? (editing ? ` <span class="claimBadge">🙋 Aria says done</span>` : ` <span class="claimBadge">🙋 waiting for ✓</span>`) : "";
     html += `<div class="task${done?" done":""}">
       <div class="tIcon">${t.icon}</div>
       <div class="tBody">
-        <div class="tLabel">${t.label} <span class="tag ${t.core?"core":"opt"}">${t.core?"CORE":"BONUS"}</span></div>
+        <div class="tLabel">${t.label} <span class="tag ${t.core?"core":"opt"}">${t.core?"CORE":"BONUS"}</span>${claimTag}</div>
         <div class="tTarget">${sub}</div>
       </div>
       ${extra}
-      <div class="${checkCls}" data-toggle="${t.id}">${done?"✓":""}</div>
+      <div class="${checkCls}" ${editing?`data-toggle="${t.id}"`:(canClaim?`data-claim="${t.id}"`:"")}>${(done||claimed)?"✓":""}</div>
     </div>`;
   });
 
@@ -1453,6 +1474,15 @@ function renderToday(){
 
   document.getElementById("main").innerHTML = html;
   if (editing) { wireDayNav(); wireToggles(); }
+  // Aria's self-mark ("I did it") — toggles her claim; never confirms/unlocks anything
+  document.querySelectorAll("[data-claim]").forEach(el=>{
+    el.addEventListener("click",()=>{
+      const id=el.getAttribute("data-claim"), was=claimComp(todayKey(),id);
+      setClaim("comp", todayKey(), id, !was);
+      renderToday();
+      if (!was){ const t=track(id); showToast("Nice! You marked "+(t?t.label:"it")+" ✓ — Mom/Dad will confirm 💛"); }
+    });
+  });
   const bb=document.querySelector("[data-beast]");
   if (bb) bb.onclick=()=>{ view="beast"; beastOpenChapter=null; render(); };
   const xb=document.querySelector("[data-ixl]");
@@ -1902,13 +1932,15 @@ function renderHabits(){
 
   html += renderUnlocksHTML(t);
   html += `<h2 class="sec">Today's habits</h2>`;
+  const canClaim = ariaCanClaim();
   PLAN.habits.forEach(h=>{
-    const d = habitDone(t,h.id);
-    const checkCls = "check"+(d?" done":"")+(editing?" editable":"");
+    const d = habitDone(t,h.id), claimed = claimHab(t,h.id);
+    const checkCls = "check"+(d?" done":(claimed?" claim":""))+((editing||canClaim)?" editable":"");
+    const claimTag = (claimed && !d) ? (editing ? ` <span class="claimBadge">🙋 Aria says done</span>` : ` <span class="claimBadge">🙋 waiting for ✓</span>`) : "";
     html += `<div class="task${d?" done":""}">
       <div class="tIcon">${h.icon}</div>
-      <div class="tBody"><div class="tLabel">${esc(h.label)}</div></div>
-      <div class="${checkCls}" data-habit="${h.id}">${d?"✓":""}</div>
+      <div class="tBody"><div class="tLabel">${esc(h.label)}${claimTag}</div></div>
+      <div class="${checkCls}" ${editing?`data-habit="${h.id}"`:(canClaim?`data-habitclaim="${h.id}"`:"")}>${(d||claimed)?"✓":""}</div>
     </div>`;
   });
 
@@ -1940,6 +1972,15 @@ function renderHabits(){
       });
     });
   }
+  // Aria's self-mark for habits (claim only; parent confirms for hearts/reward)
+  document.querySelectorAll("[data-habitclaim]").forEach(el=>{
+    el.addEventListener("click",()=>{
+      const id=el.getAttribute("data-habitclaim"), was=claimHab(t,id);
+      setClaim("hab", t, id, !was);
+      renderHabits();
+      if (!was){ const h=PLAN.habits.find(x=>x.id===id); showToast("You marked “"+(h?esc(h.label):"it")+"” 💛 — waiting for Mom/Dad ✓"); }
+    });
+  });
 }
 
 /* ---- 🗺️ Plan / Roadmap: the 4-phase year, standards, resources, schedule ---- */
@@ -2260,7 +2301,8 @@ const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
 const famRef = doc(db, "families", "aria");
-let role = "none", unsub = null;
+const claimsRef = doc(db, "families", "aria-claims");   // Aria's self-marks (she can write this doc)
+let role = "none", unsub = null, claimsUnsub = null, claimsLoaded = false;
 let cloudLoaded = false;   // becomes true after the FIRST snapshot is applied — gate writes until then
 
 window.AriaSync = {
@@ -2273,6 +2315,12 @@ window.AriaSync = {
     setDoc(famRef, Store.syncData())
       .then(()=> syncStatus(true))
       .catch(e=>{ console.warn("cloud write failed:", e.message); syncStatus(false, e.message); });
+  },
+  pushClaims(){
+    if (this.role === "none") return;                       // signed-in family members only
+    if (!claimsLoaded) return;                              // read-before-write for the claims doc too
+    setDoc(claimsRef, { comp: Store.state.claims.comp, hab: Store.state.claims.hab })
+      .catch(e=>console.warn("claims write failed:", e.message));
   },
   signOut(){ signOut(auth); },
 };
@@ -2304,10 +2352,25 @@ function startSync(){
     if ((migrated || restored) && role === "parent") window.AriaSync.pushCloud();   // push version bump / restore
     window.render && window.render();
   }, (err)=>{ console.warn("snapshot error:", err.message); syncStatus(false, "read error: "+err.message); });
+
+  // Aria's self-marks live in their own doc (she can write it; parent reads it to confirm).
+  if (!claimsUnsub){
+    const claimsTimer = setTimeout(()=>{ claimsLoaded = true; }, 8000);
+    claimsUnsub = onSnapshot(claimsRef, (snap)=>{
+      clearTimeout(claimsTimer);
+      claimsLoaded = true;
+      if (snap.exists()){
+        const d = snap.data() || {};
+        Store.state.claims = { comp: d.comp || {}, hab: d.hab || {} };
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify(Store.state)); } catch(e){}
+      }
+      window.render && window.render();
+    }, (err)=> console.warn("claims snapshot error:", err.message));
+  }
 }
 
 onAuthStateChanged(auth, (user)=>{
-  if (!user){ role="none"; window.AriaSync.role="none"; if(unsub){unsub();unsub=null;} window.showSignIn && window.showSignIn(); return; }
+  if (!user){ role="none"; window.AriaSync.role="none"; if(unsub){unsub();unsub=null;} if(claimsUnsub){claimsUnsub();claimsUnsub=null;} cloudLoaded=false; claimsLoaded=false; window.showSignIn && window.showSignIn(); return; }
   role = user.uid === PARENT_UID ? "parent" : user.uid === ARIA_UID ? "aria" : "none";
   if (role === "none"){   // unknown account -> bounce back to the sign-in gate
     const err=document.getElementById("siErr"); if(err) err.textContent="This account isn't set up for Aria's tracker.";
