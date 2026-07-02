@@ -476,7 +476,7 @@ window.PLAN = {
   // Optional Claude fallback for the barcode scanner when the book databases miss.
   // Leave "" to use databases + manual entry only. To enable Claude, deploy the
   // book-lookup-worker (holds the Anthropic key server-side) and put its URL here.
-  bookLookupProxy: "",
+  bookLookupProxy: "https://book-lookup.cksainia.workers.dev",
 
   /* DAILY SCREEN-TIME UNLOCKS — earned fresh each day.
      academics: unlocked once ALL core academic tasks are done. habits: unlocked once
@@ -1041,8 +1041,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v21 · cover-fixer";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 21;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v22 · claude-proxy";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 22;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
