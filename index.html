@@ -1041,8 +1041,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v20 · cover-fixer";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 20;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v21 · cover-fixer";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 21;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -2483,7 +2483,21 @@ async function findCoverFor(b){
       if (c && await probeImg(c)) return { cover:c, source:"Google Books" };
     }
   } catch(e){}
-  // 2) Claude proxy (server-side key — never in the client)
+  // 2) Open Library — free safety net for when Google is rate-limiting this IP
+  try {
+    const u = b.isbn
+      ? `https://openlibrary.org/search.json?isbn=${normISBN(b.isbn)}&fields=cover_i&limit=5`
+      : `https://openlibrary.org/search.json?title=${encodeURIComponent(b.title)}${b.author?`&author=${encodeURIComponent(b.author)}`:""}&fields=cover_i&limit=5`;
+    const r = await fetch(u);
+    if (r.ok){
+      for (const doc of ((await r.json()).docs||[])){
+        if (!doc.cover_i) continue;
+        const c=`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg?default=false`;
+        if (await probeImg(c)) return { cover:c, source:"Open Library" };
+      }
+    }
+  } catch(e){}
+  // 3) Claude proxy (server-side key — never in the client)
   if (PLAN.bookLookupProxy){
     try {
       const r=await fetch(PLAN.bookLookupProxy,{method:"POST",headers:{"Content-Type":"application/json"},
@@ -2562,8 +2576,8 @@ async function runCoverSearch(){
   let final=`Done — updated ${found} of ${ids.length} cover${ids.length!==1?"s":""}.`;
   if (found<ids.length){
     final += (!PLAN.bookLookupProxy && googleMissed)
-      ? " Google Books had no image for the rest, and the Claude fallback isn't set up yet (deploy book-lookup-worker.js, then set bookLookupProxy)."
-      : " Neither Google Books nor Claude found an image for the rest.";
+      ? " Google Books + Open Library had no image for the rest, and the Claude fallback isn't set up yet (deploy book-lookup-worker.js, then set bookLookupProxy)."
+      : " No image found for the rest (tried Google Books, Open Library, and Claude).";
   }
   msg.textContent=final;
   covBusy=false; go.disabled=false;
