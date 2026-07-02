@@ -248,6 +248,19 @@
   .scanMsg.ok{color:var(--green);font-weight:700;}
   .addCov{width:92px;height:136px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:34px;border:1px solid var(--line);}
   .addCov img{width:100%;height:100%;object-fit:cover;}
+  /* Cover fixer (parent-only) */
+  .covRow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;
+    padding:8px 10px;margin-bottom:6px;background:var(--card);cursor:pointer;}
+  .covRow input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--teal);}
+  .covRow .cth{width:34px;height:50px;border-radius:6px;background:var(--soft);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:18px;border:1px solid var(--line);}
+  .covRow .cth img{width:100%;height:100%;object-fit:cover;}
+  .covRow .cbody{flex:1;min-width:0;}
+  .covRow .ctitle{font-size:13px;font-weight:700;line-height:1.25;}
+  .covRow .csub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .covRow .cstat{font-size:12px;font-weight:800;flex-shrink:0;}
+  .covRow.ok{border-color:#9fe7c4;background:var(--greenL);}
+  .covRow.fail{border-color:#f3b1a6;}
   /* ===== iPad / tablet (≥700px): wider canvas, floating pill nav, two-column groups ===== */
   @media (min-width:700px){
     .wrap{max-width:820px;padding:0 24px;}
@@ -413,6 +426,20 @@
         <button class="btn ghost" id="addBack">‹ Scan again</button>
         <button class="btn primary" id="addSave">Add to shelf</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cover fixer (parent-only) -->
+<div class="modal" id="coverModal" role="dialog" aria-modal="true" aria-label="Fix book covers">
+  <div class="sheet" style="max-width:440px">
+    <h3 style="margin:0 0 4px">🖼️ Fix book covers</h3>
+    <p id="covIntro" style="margin:0 0 10px;color:var(--muted);font-size:14px">Checking the shelf…</p>
+    <div id="covList" style="max-height:46vh;overflow:auto;margin-bottom:4px"></div>
+    <div id="covMsg" class="scanMsg" style="min-height:0;text-align:left"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn ghost" id="covCancel">Close</button>
+      <button class="btn primary" id="covGo">🔍 Search selected</button>
     </div>
   </div>
 </div>
@@ -1014,8 +1041,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v18 · header-habits";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 18;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v19 · cover-fixer";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 19;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -1735,6 +1762,7 @@ function renderBooks(){
   if (editing){
     html += `<div class="editHint">✏️ Tap a cover to cycle: To read → Reading → Finished ✓ → Already-read ✦. Already-read books count toward the year total but don't trigger a daily star.</div>`;
     html += `<button class="btn primary" id="scanBook" style="width:100%;margin-bottom:8px">📷 Scan a book (add by barcode)</button>`;
+    html += `<button class="btn ghost" id="fixCovers" style="width:100%;margin-bottom:8px">🖼️ Find missing covers</button>`;
     html += `<button class="btn ghost" id="bulkPrev" style="width:100%;margin-bottom:12px">📖 Mark all “To read” as already-read</button>`;
   }
 
@@ -1766,6 +1794,8 @@ function renderBooks(){
   if (editing){
     const sb=document.getElementById("scanBook");
     if (sb) sb.onclick=openScanner;
+    const fc=document.getElementById("fixCovers");
+    if (fc) fc.onclick=openCoverFixer;
     const bp=document.getElementById("bulkPrev");
     if (bp) bp.onclick=()=>{
       let n=0; Store.state.books.forEach(b=>{ if(b.status==="unread"){ b.status="prev"; n++; } });
@@ -2412,6 +2442,133 @@ document.getElementById("addBack").addEventListener("click", openScanner);
 document.getElementById("addSave").addEventListener("click", addScannedBook);
 document.getElementById("isbnGo").addEventListener("click", ()=>handleScannedText(document.getElementById("isbnIn").value));
 document.getElementById("isbnIn").addEventListener("keydown", e=>{ if(e.key==="Enter") handleScannedText(e.target.value); });
+
+/* ============================================================
+   COVER FIXER (parent-only) — probes every cover, lets the
+   parent pick which books to search, then Google Books first
+   and the Claude proxy (bookLookupProxy) only if Google misses.
+   A found cover is applied ONLY after the image actually loads.
+   ============================================================ */
+function probeImg(url, ms){
+  return new Promise(res=>{
+    if (!url) return res(false);
+    const im=new Image(); let done=false;
+    const fin=v=>{ if(!done){ done=true; clearTimeout(t); res(v); } };
+    const t=setTimeout(()=>fin(false), ms||8000);
+    im.onload=()=>fin(im.naturalWidth>1);   // openlibrary's default=false still 200s a 1px gif sometimes
+    im.onerror=()=>fin(false);
+    im.src=url;
+  });
+}
+async function findCoverFor(b){
+  // 1) Google Books — by ISBN when we have one, else title+author
+  try {
+    const q = b.isbn ? `isbn:${normISBN(b.isbn)}`
+                     : `intitle:"${b.title}"`+(b.author?` inauthor:"${b.author}"`:"");
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&country=US&maxResults=5&printType=books`);
+    if (r.ok){
+      for (const it of ((await r.json()).items||[])){
+        const c=(((it.volumeInfo||{}).imageLinks||{}).thumbnail||"").replace(/^http:/,"https:");
+        if (c && await probeImg(c)) return { cover:c, source:"Google Books" };
+      }
+    }
+  } catch(e){}
+  // 2) Claude proxy (server-side key — never in the client)
+  if (PLAN.bookLookupProxy){
+    try {
+      const r=await fetch(PLAN.bookLookupProxy,{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ isbn:b.isbn||"", title:b.title, author:b.author||"", series:b.series||"" })});
+      if (r.ok){
+        const d=await r.json();
+        if (d && d.cover && await probeImg(d.cover)) return { cover:d.cover, source:"Claude" };
+        if (d && d.isbn){   // Claude pinned the ISBN — try Google's image for it
+          try {
+            const g=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${normISBN(d.isbn)}&country=US`);
+            if (g.ok){
+              const v=(((await g.json()).items||[])[0]||{}).volumeInfo||{};
+              const c=((v.imageLinks||{}).thumbnail||"").replace(/^http:/,"https:");
+              if (c && await probeImg(c)) return { cover:c, source:"Claude + Google" };
+            }
+          } catch(e){}
+        }
+      }
+    } catch(e){}
+  }
+  return null;
+}
+function coverRow(b, checked){
+  const th=b.cover?`<img src="${b.cover}" loading="lazy" onerror="this.remove()">`:"📖";
+  return `<label class="covRow" data-cov="${b.id}">
+    <input type="checkbox" ${checked?"checked":""} data-covck="${b.id}">
+    <div class="cth">${th}</div>
+    <div class="cbody"><div class="ctitle">${esc(b.title)}</div>
+      <div class="csub">${esc(b.series||"")}${b.author?" · "+esc(b.author):""}</div></div>
+    <div class="cstat" data-covstat="${b.id}"></div>
+  </label>`;
+}
+let covBusy=false;
+async function openCoverFixer(){
+  const m=document.getElementById("coverModal");
+  m.classList.add("show"); covBusy=false;
+  document.getElementById("covGo").disabled=false;
+  document.getElementById("covIntro").textContent="Checking every cover on the shelf…";
+  document.getElementById("covList").innerHTML="";
+  document.getElementById("covMsg").textContent="";
+  const books=Store.state.books;
+  const oks=await Promise.all(books.map(b=>probeImg(b.cover)));   // finds empty AND broken covers
+  const broken=books.filter((b,i)=>!oks[i]);
+  const intro=document.getElementById("covIntro"), listEl=document.getElementById("covList");
+  intro.textContent = broken.length
+    ? `${broken.length} book${broken.length!==1?"s":""} missing a cover — pick which to search:`
+    : "Every book has a working cover 🎉 — pick any you'd like to re-search:";
+  const show=broken.length?broken:books;
+  listEl.innerHTML = show.map(b=>coverRow(b, broken.includes(b))).join("")
+    + (broken.length && broken.length<books.length
+        ? `<button class="btn ghost" id="covAll" style="width:100%;margin-top:4px">Show all ${books.length} books</button>` : "");
+  const all=document.getElementById("covAll");
+  if (all) all.onclick=()=>{ listEl.innerHTML=books.map(b=>coverRow(b, broken.includes(b))).join(""); };
+}
+async function runCoverSearch(){
+  if (covBusy) return; covBusy=true;
+  const go=document.getElementById("covGo"), msg=document.getElementById("covMsg");
+  go.disabled=true;
+  const ids=[...document.querySelectorAll("#covList [data-covck]:checked")].map(el=>el.getAttribute("data-covck"));
+  if (!ids.length){ msg.textContent="Nothing selected — tick at least one book."; covBusy=false; go.disabled=false; return; }
+  let found=0, done=0, googleMissed=false;
+  for (const id of ids){
+    const b=Store.state.books.find(x=>x.id===id); if(!b){ done++; continue; }
+    const row=document.querySelector(`.covRow[data-cov="${id}"]`), st=document.querySelector(`[data-covstat="${id}"]`);
+    if (st){ st.textContent="🔎…"; st.style.color="var(--muted)"; }
+    const hit=await findCoverFor(b); done++;
+    if (hit){
+      b.cover=hit.cover; found++;
+      if (row){ row.classList.remove("fail"); row.classList.add("ok");
+        const th=row.querySelector(".cth"); if(th) th.innerHTML=`<img src="${hit.cover}">`; }
+      if (st){ st.textContent="✓ "+hit.source; st.style.color="var(--green)"; }
+    } else {
+      googleMissed=true;
+      if (row) row.classList.add("fail");
+      if (st){ st.textContent="✗ not found"; st.style.color="var(--coral)"; }
+    }
+    msg.textContent=`Searching… ${done}/${ids.length}`;
+    if (found) Store.save();   // save as we go — a mid-run tab close keeps what's found
+  }
+  let final=`Done — updated ${found} of ${ids.length} cover${ids.length!==1?"s":""}.`;
+  if (found<ids.length){
+    final += (!PLAN.bookLookupProxy && googleMissed)
+      ? " Google Books had no image for the rest, and the Claude fallback isn't set up yet (deploy book-lookup-worker.js, then set bookLookupProxy)."
+      : " Neither Google Books nor Claude found an image for the rest.";
+  }
+  msg.textContent=final;
+  covBusy=false; go.disabled=false;
+  if (found) showToast(`🖼️ ${found} cover${found!==1?"s":""} updated`);
+}
+function closeCoverFixer(){
+  document.getElementById("coverModal").classList.remove("show");
+  if (view==="books") renderBooks();   // show the new covers on the shelf right away
+}
+document.getElementById("covCancel").addEventListener("click", closeCoverFixer);
+document.getElementById("covGo").addEventListener("click", runCoverSearch);
 
 /* ============================================================
    NAV + PARENT MODE
