@@ -1059,10 +1059,10 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v23 · isbns-manage";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 23;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v24 · durable-books";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 24;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
-const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
+const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore","deletedBooks"]; // what lives in the cloud doc
 const Store = {
   state: null,
   load(){
@@ -1116,6 +1116,14 @@ const Store = {
         if (c && c.isbn && b.isbn !== c.isbn){ b.isbn = c.isbn; changed = true; } });
       this.state.booksSeed = 7; changed = true;
     }
+    // Deletions are durable: a book the parent removed must stay gone even if a stale device
+    // still has it and pushes it back. deletedBooks (synced) is the tombstone list.
+    if (!Array.isArray(this.state.deletedBooks)) this.state.deletedBooks = [];
+    if (this.state.deletedBooks.length && Array.isArray(this.state.books)){
+      const del = new Set(this.state.deletedBooks), before = this.state.books.length;
+      this.state.books = this.state.books.filter(b=>!del.has(b.id));
+      if (this.state.books.length !== before) changed = true;
+    }
     // Beast: SEED ONCE ONLY. Initialise the baseline the first time this account is set up;
     // NEVER overwrite real progress on later loads/deploys. (Earlier this re-ran on every
     // version mismatch and wiped her lessons back to baseline — a deploy must keep progress.)
@@ -1143,7 +1151,16 @@ const Store = {
   syncData(){ const o={}; SYNC_FIELDS.forEach(k=>{ if(this.state[k]!==undefined) o[k]=this.state[k]; }); return o; },
   // adopt a cloud snapshot (synced fields only — keeps local UI fields like parentMode)
   applyCloud(data){
+    // capture locally-known scanned books BEFORE the cloud overwrites state.books —
+    // an incoming snapshot from a stale device could otherwise silently drop them.
+    const priorAdded = Array.isArray(this.state.books) ? this.state.books.filter(b=>b.added) : [];
     SYNC_FIELDS.forEach(k=>{ if(data[k]!==undefined) this.state[k]=data[k]; });
+    // re-attach any scanned book the snapshot dropped, unless it was intentionally deleted
+    if (Array.isArray(this.state.books)){
+      const have = new Set(this.state.books.map(b=>b.id));
+      const del  = new Set(this.state.deletedBooks||[]);
+      priorAdded.forEach(b=>{ if(!have.has(b.id) && !del.has(b.id)){ this.state.books.push(b); } });
+    }
     const m = this.migrate();
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.state)); } catch(e){}
     return m;
@@ -2676,6 +2693,8 @@ document.getElementById("bmDelete").addEventListener("click", ()=>{
   if(!bmBook) return;
   if(!window.confirm(`Remove "${bmBook.title}" from Aria's library? This can't be undone.`)) return;
   const id=bmBook.id, title=bmBook.title;
+  Store.state.deletedBooks = Store.state.deletedBooks || [];
+  if(!Store.state.deletedBooks.includes(id)) Store.state.deletedBooks.push(id);   // tombstone: stays deleted across devices
   Store.state.books=Store.state.books.filter(b=>b.id!==id);
   Store.save(); closeBookManage();
   renderHeader(); if (view==="books") renderBooks();
