@@ -937,7 +937,7 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v8 · claims-heal";   // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_VERSION = "v9 · storm-fix";   // bump each deploy; shown in the sync line so we can tell what a device is running
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
   state: null,
@@ -965,7 +965,10 @@ const Store = {
     if (!this.state.claims.comp) this.state.claims.comp = {};
     if (!this.state.claims.hab)  this.state.claims.hab  = {};
     // shelf from plan (preserves statuses by id across refreshes; v6 = MTH chapter-book covers + mth2)
-    if (!this.state.books || this.state.booksSeed !== 6){
+    // NOTE "<" not "!==": a stale cached client pushing an OLDER seed must never re-trigger a
+    // rebuild here — a !== check made two mixed-version parents ping-pong seed 5<->6 at network
+    // speed (the Jul-1 write storm: ~37K writes/day, quota exhausted, all sync silently dead).
+    if (!this.state.books || (this.state.booksSeed||0) < 6){
       const prevBooks = this.state.books || [];
       const prev = {}; prevBooks.forEach(b=>{ prev[b.id]=b.status; });
       const rebuilt = JSON.parse(JSON.stringify(PLAN.books)).map(b=> prev[b.id] ? Object.assign(b,{status:prev[b.id]}) : b);
@@ -2304,6 +2307,9 @@ const db   = getFirestore(app);
 const famRef = doc(db, "families", "aria");
 const claimsRef = doc(db, "families", "aria-claims");   // Aria's self-marks (she can write this doc)
 let role = "none", unsub = null, claimsUnsub = null, claimsLoaded = false, claimsPendingPush = false;
+let pushTimer = null, claimsPushTimer = null;   // debounce for pushCloud / pushClaims
+let migrationPushes = 0;       // LOOP-BREAKER: max echo-pushes per session in response to snapshots
+                               // (a stale-code device pushing an old seed must not start a write war)
 let cloudLoaded = false;   // becomes true after the FIRST snapshot is applied — gate writes until then
 
 window.AriaSync = {
@@ -2311,17 +2317,27 @@ window.AriaSync = {
   pushCloud(){
     if (this.role !== "parent") return;                     // only the parent writes
     if (!cloudLoaded) return;                                // READ-BEFORE-WRITE (once per session)
-    // Full-document write (NO merge) so deletions propagate. Surface success/failure in the
-    // header so a rejected write (e.g. Firestore rules) is visible instead of silently reverting.
-    setDoc(famRef, Store.syncData())
-      .then(()=> syncStatus(true))
-      .catch(e=>{ console.warn("cloud write failed:", e.message); syncStatus(false, e.message); });
+    // Debounced full-document write (NO merge, so deletions propagate). The debounce coalesces
+    // bursts (bulk-marking books = 1 write, not 30) and is the first line of defense against
+    // write storms after the Jul-1 quota blowout.
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(()=>{
+      const ackTimer = setTimeout(()=>{ syncStatus(false, "cloud not accepting writes (quota/offline?) — changes queued"); }, 12000);
+      setDoc(famRef, Store.syncData())
+        .then(()=>{ clearTimeout(ackTimer); syncStatus(true); })
+        .catch(e=>{ clearTimeout(ackTimer); console.warn("cloud write failed:", e.message); syncStatus(false, e.message); });
+    }, 1200);
   },
   pushClaims(){
     if (this.role === "none") return;                       // signed-in family members only
     if (!claimsLoaded){ claimsPendingPush = true; return; } // QUEUE (don't drop) taps made before first snapshot
-    setDoc(claimsRef, { comp: Store.state.claims.comp, hab: Store.state.claims.hab })
-      .catch(e=>{ console.warn("claims write failed:", e.message); syncStatus(false, "claims: "+e.message); });
+    clearTimeout(claimsPushTimer);
+    claimsPushTimer = setTimeout(()=>{
+      const ackTimer = setTimeout(()=>{ syncStatus(false, "cloud not accepting writes (quota/offline?) — marks queued"); }, 12000);
+      setDoc(claimsRef, { comp: Store.state.claims.comp, hab: Store.state.claims.hab })
+        .then(()=>{ clearTimeout(ackTimer); syncStatus(true); })
+        .catch(e=>{ clearTimeout(ackTimer); console.warn("claims write failed:", e.message); syncStatus(false, "claims: "+e.message); });
+    }, 800);
   },
   signOut(){ signOut(auth); },
 };
@@ -2350,7 +2366,16 @@ function startSync(){
     try { migrated = Store.applyCloud(snap.data()); }   // cloud is source of truth
     catch(e){ console.warn("applyCloud failed:", e); }  // never let a bad doc wedge sync
     const restored = (role === "parent") ? Store.restoreBeastBaseline() : false;   // one-time baseline refill
-    if ((migrated || restored) && role === "parent") window.AriaSync.pushCloud();   // push version bump / restore
+    // Push a version bump / restore forward AT MOST twice per session. A snapshot-triggered push
+    // that itself triggers the other device to push again is how the seed ping-pong storm burned
+    // 37K writes in a day — this cap makes that impossible from this side, whatever the peer runs.
+    if ((migrated || restored) && role === "parent" && migrationPushes < 2){
+      migrationPushes++;
+      window.AriaSync.pushCloud();
+    } else if ((migrated || restored) && role === "parent"){
+      console.warn("migration push suppressed (loop-breaker) — a stale device may be pushing old data");
+      syncStatus(false, "another device is running an old version — refresh all devices");
+    }
     window.render && window.render();
   }, (err)=>{ console.warn("snapshot error:", err.message); syncStatus(false, "read error: "+err.message); });
 
