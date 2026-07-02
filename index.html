@@ -937,7 +937,7 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v7 · claims";   // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_VERSION = "v8 · claims-heal";   // bump each deploy; shown in the sync line so we can tell what a device is running
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
   state: null,
@@ -2303,7 +2303,7 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 const famRef = doc(db, "families", "aria");
 const claimsRef = doc(db, "families", "aria-claims");   // Aria's self-marks (she can write this doc)
-let role = "none", unsub = null, claimsUnsub = null, claimsLoaded = false;
+let role = "none", unsub = null, claimsUnsub = null, claimsLoaded = false, claimsPendingPush = false;
 let cloudLoaded = false;   // becomes true after the FIRST snapshot is applied — gate writes until then
 
 window.AriaSync = {
@@ -2319,9 +2319,9 @@ window.AriaSync = {
   },
   pushClaims(){
     if (this.role === "none") return;                       // signed-in family members only
-    if (!claimsLoaded) return;                              // read-before-write for the claims doc too
+    if (!claimsLoaded){ claimsPendingPush = true; return; } // QUEUE (don't drop) taps made before first snapshot
     setDoc(claimsRef, { comp: Store.state.claims.comp, hab: Store.state.claims.hab })
-      .catch(e=>console.warn("claims write failed:", e.message));
+      .catch(e=>{ console.warn("claims write failed:", e.message); syncStatus(false, "claims: "+e.message); });
   },
   signOut(){ signOut(auth); },
 };
@@ -2360,14 +2360,35 @@ function startSync(){
     claimsUnsub = onSnapshot(claimsRef, (snap)=>{
       clearTimeout(claimsTimer);
       claimsLoaded = true;
-      if (snap.exists()){
+      const local = Store.state.claims || { comp:{}, hab:{} };
+      const hasLocal = Object.keys(local.comp||{}).length > 0 || Object.keys(local.hab||{}).length > 0;
+      if (claimsPendingPush){
+        // taps happened while the first snapshot was still loading — local wins, merged over cloud
+        claimsPendingPush = false;
+        if (snap.exists()){ const d=snap.data()||{}; unionClaims(Store.state.claims, { comp:d.comp||{}, hab:d.hab||{} }); }
+        window.AriaSync.pushClaims();
+      } else if (snap.exists()){
         const d = snap.data() || {};
         Store.state.claims = { comp: d.comp || {}, hab: d.hab || {} };
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(Store.state)); } catch(e){}
+      } else if (role === "aria" && hasLocal){
+        // SELF-HEAL: no cloud doc but Aria has local claims — e.g. she marked items BEFORE the
+        // aria-claims rule was published, so those writes were rejected and nothing re-sent them.
+        // Push the full local claims up now so the parent finally sees them.
+        window.AriaSync.pushClaims();
       }
       window.render && window.render();
     }, (err)=> console.warn("claims snapshot error:", err.message));
   }
+}
+
+// union src INTO dst at the per-day, per-item level (dst wins on conflicts — fresher local taps)
+function unionClaims(dst, src){
+  ["comp","hab"].forEach(k=>{
+    if (!dst[k]) dst[k] = {};
+    const s = src[k] || {};
+    for (const day in s){ dst[k][day] = Object.assign({}, s[day], dst[k][day] || {}); }
+  });
 }
 
 onAuthStateChanged(auth, (user)=>{
