@@ -99,6 +99,16 @@
   .backlog h3{margin:0 0 8px;font-size:14px;color:var(--coral);display:flex;align-items:center;gap:7px;}
   .bchips{display:flex;flex-wrap:wrap;gap:7px;}
   .bchip{background:#fff;border:1px solid #f3b6ab;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;color:var(--coral);}
+  /* Gratitude card */
+  .gratCard{background:linear-gradient(160deg,#FFF7ED,#FFEDD5);border:1px solid #FBCFA5;border-radius:16px;padding:13px 15px;margin:12px 0;}
+  .gratHead{font-weight:800;font-size:15px;color:#9A3412;display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+  .gratInput{width:100%;box-sizing:border-box;border:1.5px solid #FBCFA5;border-radius:12px;padding:11px 12px;font-family:inherit;
+    font-size:15px;line-height:1.4;color:var(--ink);background:#fff;resize:vertical;min-height:64px;}
+  .gratInput:focus{outline:none;border-color:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.18);}
+  .gratLocked{background:#fff;border:1.5px solid #FBCFA5;border-radius:12px;padding:11px 12px;font-size:15px;line-height:1.4;
+    color:var(--ink);white-space:pre-wrap;word-break:break-word;}
+  .gratHint{font-size:12px;color:#B45309;margin-top:7px;font-weight:600;display:flex;align-items:center;gap:6px;}
+  .gratDone{font-size:12px;color:var(--green);margin-top:7px;font-weight:700;}
 
   /* Books */
   .book{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
@@ -1062,8 +1072,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v27 · beast-toggle";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 27;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v28 · gratitude";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 28;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore","deletedBooks"]; // what lives in the cloud doc
 const Store = {
@@ -1095,6 +1105,7 @@ const Store = {
     if (!this.state.claims.journal) this.state.claims.journal = {};
     if (!this.state.claims.beast)   this.state.claims.beast   = {};
     if (!this.state.claims.ixl)     this.state.claims.ixl     = {};
+    if (!this.state.claims.gratitude) this.state.claims.gratitude = {};   // {day: text} — Aria's daily gratitude, locks after the day
     if (typeof this.state.claims.reward !== "string") this.state.claims.reward = "";   // Aria's chosen prize ("" = default)
     // shelf from plan (preserves statuses by id across refreshes; v6 = MTH chapter-book covers + mth2)
     // NOTE "<" not "!==": a stale cached client pushing an OLDER seed must never re-trigger a
@@ -1312,6 +1323,14 @@ function claimJournal(dayKey){ return (Store.state.claims.journal && Store.state
 function setClaimJournal(dayKey, n){
   if (n<0) n=0;
   if (n>0) Store.state.claims.journal[dayKey]=n; else delete Store.state.claims.journal[dayKey];
+  saveClaims();
+}
+/* Gratitude = free text Aria writes for a day; editable only on the current day, then locked */
+function gratitudeText(dayKey){ return (Store.state.claims.gratitude && Store.state.claims.gratitude[dayKey]) || ""; }
+function setGratitude(dayKey, text){
+  const t=(text||"").trim();
+  if (!Store.state.claims.gratitude) Store.state.claims.gratitude={};
+  if (t) Store.state.claims.gratitude[dayKey]=t.slice(0,600); else delete Store.state.claims.gratitude[dayKey];
   saveClaims();
 }
 /* Beast lessons + IXL skills claims (flat keys, mirroring their real stores) */
@@ -1559,6 +1578,23 @@ function renderUnlocksHTML(dayKey){
     </div>`;
 }
 
+/* Gratitude card — editable only on the current day; past days render locked (read-only). */
+function gratitudeCardHTML(){
+  const day = editDay, isToday = day===todayKey(), text = gratitudeText(day);
+  if (!isToday && !text) return "";                         // no empty locked cards for past days
+  const head = isToday ? "🙏 Today I'm grateful for…" : `🙏 Grateful on ${prettyDate(day)}`;
+  const inner = isToday
+    ? `<textarea id="gratInput" class="gratInput" maxlength="600" placeholder="One thing you're thankful for today…">${esc(text)}</textarea>
+       <div class="gratHint">🔒 Locks at the end of today — write it before bed 💛</div>`
+    : `<div class="gratLocked">${esc(text)}</div><div class="gratHint">🔒 Locked · ${prettyDate(day)}</div>`;
+  return `<div class="gratCard"><div class="gratHead">${head}</div>${inner}</div>`;
+}
+function wireGratitude(){
+  const ta = document.getElementById("gratInput");
+  if (!ta) return;
+  ta.addEventListener("input", ()=>{ setGratitude(todayKey(), ta.value); });   // saves + debounced sync; no re-render so focus stays
+}
+
 function renderToday(){
   const editing = Store.state.parentMode;
   const d = parseYMD(editDay);
@@ -1576,8 +1612,10 @@ function renderToday(){
     html += `<div class="restCard"><div class="big">🌴</div>
       <h3 style="margin:8px 0 4px">Rest Day!</h3>
       <p style="color:var(--muted);margin:0">Sundays are sacred. Recharge, read for fun, play. See you tomorrow! 💚</p></div>`;
+    html += gratitudeCardHTML();
     document.getElementById("main").innerHTML = html;
     if (editing) wireDayNav();
+    wireGratitude();
     return;
   }
 
@@ -1682,9 +1720,11 @@ function renderToday(){
     </div>`;
   });
   html += `</div>`;   // /taskList
+  html += gratitudeCardHTML();
 
   document.getElementById("main").innerHTML = html;
   if (editing) { wireDayNav(); wireToggles(); }
+  wireGratitude();
   // Aria's self-mark ("I did it") — toggles her claim; never confirms/unlocks anything
   document.querySelectorAll("[data-claim]").forEach(el=>{
     el.addEventListener("click",()=>{
@@ -2892,7 +2932,7 @@ window.AriaSync = {
     claimsPushTimer = setTimeout(()=>{
       const ackTimer = setTimeout(()=>{ syncStatus(false, "cloud not accepting writes (quota/offline?) — marks queued"); }, 12000);
       const c = Store.state.claims;
-      setDoc(claimsRef, { comp: c.comp||{}, hab: c.hab||{}, journal: c.journal||{}, beast: c.beast||{}, ixl: c.ixl||{}, reward: c.reward||"" })
+      setDoc(claimsRef, { comp: c.comp||{}, hab: c.hab||{}, journal: c.journal||{}, beast: c.beast||{}, ixl: c.ixl||{}, gratitude: c.gratitude||{}, reward: c.reward||"" })
         .then(()=>{ clearTimeout(ackTimer); syncStatus(true); })
         .catch(e=>{ clearTimeout(ackTimer); console.warn("claims write failed:", e.message); syncStatus(false, "claims: "+e.message); });
     }, 800);
@@ -2948,11 +2988,11 @@ function startSync(){
       if (claimsPendingPush){
         // taps happened while the first snapshot was still loading — local wins, merged over cloud
         claimsPendingPush = false;
-        if (snap.exists()){ const d=snap.data()||{}; unionClaims(Store.state.claims, { comp:d.comp||{}, hab:d.hab||{}, journal:d.journal||{}, beast:d.beast||{}, ixl:d.ixl||{} }); }
+        if (snap.exists()){ const d=snap.data()||{}; unionClaims(Store.state.claims, { comp:d.comp||{}, hab:d.hab||{}, journal:d.journal||{}, beast:d.beast||{}, ixl:d.ixl||{}, gratitude:d.gratitude||{} }); }
         window.AriaSync.pushClaims();
       } else if (snap.exists()){
         const d = snap.data() || {};
-        Store.state.claims = { comp: d.comp || {}, hab: d.hab || {}, journal: d.journal || {}, beast: d.beast || {}, ixl: d.ixl || {}, reward: d.reward || "" };
+        Store.state.claims = { comp: d.comp || {}, hab: d.hab || {}, journal: d.journal || {}, beast: d.beast || {}, ixl: d.ixl || {}, gratitude: d.gratitude || {}, reward: d.reward || "" };
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(Store.state)); } catch(e){}
       } else if (role === "aria" && hasLocal){
         // SELF-HEAL: no cloud doc but Aria has local claims — e.g. she marked items BEFORE the
@@ -2972,7 +3012,7 @@ function unionClaims(dst, src){
     const s = src[k] || {};
     for (const day in s){ dst[k][day] = Object.assign({}, s[day], dst[k][day] || {}); }
   });
-  ["beast","ixl","journal"].forEach(k=>{    // flat maps ({key:true} / {day:count}) — dst wins
+  ["beast","ixl","journal","gratitude"].forEach(k=>{    // flat maps ({key:true} / {day:count/text}) — dst wins
     dst[k] = Object.assign({}, src[k] || {}, dst[k] || {});
   });
   dst.reward = dst.reward || src.reward || "";   // her chosen prize — local pick wins
