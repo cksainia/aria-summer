@@ -937,6 +937,7 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
+window.APP_VERSION = "v7 · claims";   // bump each deploy; shown in the sync line so we can tell what a device is running
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
   state: null,
@@ -2254,7 +2255,7 @@ function onSignedIn(role){
   const so=document.getElementById("signoutBtn"); if(so) so.style.display = "";
   if (role!=="parent") Store.state.parentMode = false;  // Aria is read-only
   const sd=document.getElementById("syncDot");
-  if (sd) sd.textContent = "☁️ Live sync on · signed in as " + (role==="parent" ? "Parent" : "Aria");
+  if (sd) sd.textContent = "☁️ Live sync on · " + (role==="parent" ? "Parent" : "Aria") + " · " + window.APP_VERSION;
   appShellInert(false);
   render();
   fetchHindi();   // refresh Hindi feed (only after auth)
@@ -2327,7 +2328,7 @@ window.AriaSync = {
 
 function syncStatus(ok, msg){
   const sd = document.getElementById("syncDot"); if (!sd) return;
-  if (ok){ if (window.ROLE) sd.textContent = "☁️ Live sync on · signed in as " + (window.ROLE==="parent" ? "Parent" : "Aria"); }
+  if (ok){ if (window.ROLE) sd.textContent = "☁️ Live sync on · " + (window.ROLE==="parent" ? "Parent" : "Aria") + " · " + window.APP_VERSION; }
   else sd.textContent = "⚠️ Sync write failed — " + (msg || "unknown error");
 }
 
