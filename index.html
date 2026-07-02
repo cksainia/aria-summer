@@ -257,6 +257,18 @@
     .stats{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));}
   }
 
+  /* ===== iPad landscape / desktop (≥1000px): wider still, more columns, less scroll ===== */
+  @media (min-width:1000px){
+    .wrap{max-width:1100px;}
+    .taskList{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
+    .taskList .task{margin-bottom:0;}
+    .habitList{grid-template-columns:repeat(3,1fr);}
+    .lessonList{grid-template-columns:repeat(3,1fr);}
+    .rmList{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
+    .rmList .rmItem{margin-bottom:0;}
+    .bookGrid{grid-template-columns:repeat(auto-fill,minmax(124px,1fr));}
+  }
+
   /* Version gate banner */
   .updateBar{display:none;position:fixed;top:0;left:0;right:0;z-index:60;background:#1A2E4A;color:#fff;
     padding:12px 16px;font-size:14px;font-weight:700;align-items:center;justify-content:center;gap:12px;
@@ -973,8 +985,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v14 · ipad-ui";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 14;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v15 · landscape";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 15;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -1464,7 +1476,7 @@ function renderToday(){
       <span class="pbIcon">${ph.icon}</span>
       <span><b>${ph.label}</b> · ${esc(ph.goal)}</span></div>`;
   html += renderUnlocksHTML(editDay);
-  html += `<h2 class="sec">${editDay===todayKey()?"Today's tasks":"Tasks"}</h2>`;
+  html += `<h2 class="sec">${editDay===todayKey()?"Today's tasks":"Tasks"}</h2><div class="taskList">`;
   dailyTracks(editDay).forEach(t=>{
     const done = isDone(editDay,t.id);
     // Journaling = sentence counter (stepper); done when she reaches her goal
@@ -1532,10 +1544,12 @@ function renderToday(){
     </div>`;
   });
 
+  html += `</div>`;   // /taskList (daily)
+
   // weekly bonus tracks (e.g. Khan 3x/week) — for this day's phase
   const weekly = weeklyTracks(editDay);
   if (weekly.length){
-    html += `<h2 class="sec">This week's bonus</h2>`;
+    html += `<h2 class="sec">This week's bonus</h2><div class="taskList">`;
     weekly.forEach(t=>{
       const n = weekCount(t.id);
       const goal = t.cadence.perWeek;
@@ -1550,6 +1564,7 @@ function renderToday(){
         <div class="${checkCls}" data-toggle="${t.id}">${done?"✓":""}</div>
       </div>`;
     });
+    html += `</div>`;   // /taskList (weekly)
   }
 
   document.getElementById("main").innerHTML = html;
@@ -1745,7 +1760,7 @@ function renderProgress(){
       <div class="stat"><div class="n">${elapsed}</div><div class="l">📅 Learning days done</div></div>
       <div class="stat"><div class="n">${njLeft}</div><div class="l">🎯 Days left to NJSLA</div></div>
     </div>
-    <h2 class="sec">By subject (whole year so far)</h2>`;
+    <h2 class="sec">By subject (whole year so far)</h2><div class="taskList">`;
   // every daily track that has appeared in any phase, scored only over days it was scheduled
   const dailyIds = []; PLAN.phases.forEach(p=>p.tracks.forEach(t=>{ if(t.cadence==="daily" && !dailyIds.includes(t.id)) dailyIds.push(t.id); }));
   dailyIds.forEach(id=>{
@@ -1761,6 +1776,7 @@ function renderProgress(){
       <div style="font-weight:800;color:var(--teal)">${done}<span style="color:var(--muted);font-weight:600">/${sched}</span></div>
     </div>`;
   });
+  html += `</div>`;   // /taskList
   document.getElementById("main").innerHTML = html;
 }
 
@@ -2167,12 +2183,14 @@ function renderRoadmap(){
 
   // tab body
   if (roadmapTab==="math" || roadmapTab==="ela"){
+    html += `<div class="rmList">`;
     (roadmapTab==="math"?ph.math:ph.ela).forEach(item=>{
       html += `<div class="rmItem" style="background:${ph.color}0d;border-color:${ph.color}22">
         <span class="rmStd" style="background:${ph.color}">${esc(item.standard)}</span>
         <div><div class="rmTopic">${esc(item.topic)}</div><div class="rmDesc">${esc(item.desc)}</div></div>
       </div>`;
     });
+    html += `</div>`;
   } else if (roadmapTab==="workbooks"){
     html += `<div class="rmHint">${editing?"Tap a resource to mark it owned / in use.":"Resources Mom & Dad are using this phase."}</div>`;
     ph.workbooks.forEach((wb,i)=>{
