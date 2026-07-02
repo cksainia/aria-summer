@@ -65,6 +65,9 @@
   .task.bonus .tIcon{background:var(--violetL);}
   .task.bonus.done{background:linear-gradient(90deg,var(--greenL),#fff);border-color:#9fe7c4;}
   .tag.bonus{background:var(--violetL);color:var(--violet);}
+  .rewardSel{font-family:inherit;font-weight:800;font-size:14px;color:var(--ink);background:#fff;
+    border:1.5px solid var(--line);border-radius:10px;padding:6px 8px;max-width:100%;min-width:0;cursor:pointer;}
+  .rewardSel:focus{outline:none;border-color:var(--teal);}
   .tIcon{font-size:30px;width:46px;height:46px;border-radius:12px;background:var(--soft);
     display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
   .task.done .tIcon{background:var(--greenL);}
@@ -445,8 +448,16 @@ window.PLAN = {
 
   /* GOOD HABITS & HELPING (social-emotional side, parent-marked) */
   habitDailyGoal: 6,                   // hit this many -> "Helper of the Day" celebration
-  // combined academic + habit stars; repeating reward paced for ~3 over the summer
-  reward: { name: "Movie night at the theater 🎬", perReward: 200, totalRewards: 3 },
+  // combined academic + habit stars; repeating reward paced for ~3 over the season.
+  // ARIA PICKS the prize from this menu (her choice syncs via the claims doc,
+  // so she can change it from her own device).
+  reward: { perReward: 200, totalRewards: 3, default: "movie", options: [
+    { id:"movie",    icon:"🎬", name:"Movie night at the theater" },
+    { id:"dinner",   icon:"🍽️", name:"Dinner date at a fancy restaurant" },
+    { id:"popmart",  icon:"🧸", name:"Korean toy from Pop Mart" },
+    { id:"icecream", icon:"🍨", name:"Ice cream with a cherry on top" },
+    { id:"books",    icon:"📚", name:"Barnes & Noble trip — pick 2 books" },
+  ]},
   habits: [
     { id:"brushAM",  icon:"🪥", label:"Brush teeth — morning",  praise:"Sparkly morning smile! ✨" },
     { id:"brushPM",  icon:"🪥", label:"Brush teeth — evening",  praise:"All set for a good night! 🌙" },
@@ -989,8 +1000,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v16 · bonus-tile";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 16;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v17 · reward-picker";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 17;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -1022,6 +1033,7 @@ const Store = {
     if (!this.state.claims.journal) this.state.claims.journal = {};
     if (!this.state.claims.beast)   this.state.claims.beast   = {};
     if (!this.state.claims.ixl)     this.state.claims.ixl     = {};
+    if (typeof this.state.claims.reward !== "string") this.state.claims.reward = "";   // Aria's chosen prize ("" = default)
     // shelf from plan (preserves statuses by id across refreshes; v6 = MTH chapter-book covers + mth2)
     // NOTE "<" not "!==": a stale cached client pushing an OLDER seed must never re-trigger a
     // rebuild here — a !== check made two mixed-version parents ping-pong seed 5<->6 at network
@@ -1224,6 +1236,12 @@ function setClaimFlat(kind, key, val){
 }
 function claimBeast(n,i){ return claimFlat("beast", n+":"+i); }
 function claimIxl(si,ki){ return claimFlat("ixl", si+":"+ki); }
+/* the prize Aria is working toward (her pick, synced via the claims doc) */
+function currentReward(){
+  const opts = PLAN.reward.options;
+  return opts.find(o=>o.id===(Store.state.claims.reward || PLAN.reward.default)) || opts[0];
+}
+function setRewardChoice(id){ Store.state.claims.reward = id; saveClaims(); }
 function heartsTotal(){ let n=0; const H=Store.state.habits||{}; for(const d in H) n+=Object.keys(H[d]).length; return n; }
 function habitWeekCount(id){ const start=parseYMD(weekStartKey(todayKey())); let n=0; for(let i=0;i<7;i++){ if(habitDone(ymd(addDays(start,i)),id)) n++; } return n; }
 function badgeEarned(b){
@@ -2079,10 +2097,14 @@ function renderHabits(){
   const earnedR = Math.min(totR, Math.floor(stars/per));
   const allR = earnedR >= totR;
   const intoNext = allR ? per : (stars - earnedR*per);
+  const rw = currentReward();
+  const rwOpts = PLAN.reward.options.map(o=>`<option value="${o.id}"${o.id===rw.id?" selected":""}>${o.icon} ${esc(o.name)}</option>`).join("");
   html += `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink);margin-top:12px">
-      <div class="qtop"><span>🫙 ${esc(PLAN.reward.name)}</span><span>${earnedR}/${totR} earned 🎬</span></div>
+      <div class="qtop" style="align-items:center;gap:8px">
+        <span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">🫙 <select id="rewardSel" class="rewardSel" aria-label="Pick your reward">${rwOpts}</select></span>
+        <span style="white-space:nowrap">${earnedR}/${totR} earned ${rw.icon}</span></div>
       <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${Math.round(intoNext/per*100)}%"></div></div>
-      <div class="qmsg" style="color:var(--muted)">${allR ? "🍿 All "+totR+" movie nights earned — incredible summer!" : intoNext+"/"+per+" stars to your next movie night (school stars + habit hearts)"}</div>
+      <div class="qmsg" style="color:var(--muted)">${allR ? rw.icon+" All "+totR+" rewards earned — incredible!" : intoNext+"/"+per+" stars to: "+rw.icon+" "+esc(rw.name)+" (school stars + habit hearts)"}</div>
     </div>`;
 
   html += renderUnlocksHTML(t);
@@ -2129,6 +2151,14 @@ function renderHabits(){
       });
     });
   }
+  // Reward picker — Aria (or parent) chooses the prize; syncs to every device
+  const rs=document.getElementById("rewardSel");
+  if (rs) rs.addEventListener("change",()=>{
+    setRewardChoice(rs.value);
+    renderHabits();
+    const o=currentReward();
+    showToast(o.icon+" Working toward: "+o.name+"! ✨");
+  });
   // Aria's self-mark for habits (claim only; parent confirms for hearts/reward)
   document.querySelectorAll("[data-habitclaim]").forEach(el=>{
     el.addEventListener("click",()=>{
@@ -2528,7 +2558,7 @@ window.AriaSync = {
     claimsPushTimer = setTimeout(()=>{
       const ackTimer = setTimeout(()=>{ syncStatus(false, "cloud not accepting writes (quota/offline?) — marks queued"); }, 12000);
       const c = Store.state.claims;
-      setDoc(claimsRef, { comp: c.comp||{}, hab: c.hab||{}, journal: c.journal||{}, beast: c.beast||{}, ixl: c.ixl||{} })
+      setDoc(claimsRef, { comp: c.comp||{}, hab: c.hab||{}, journal: c.journal||{}, beast: c.beast||{}, ixl: c.ixl||{}, reward: c.reward||"" })
         .then(()=>{ clearTimeout(ackTimer); syncStatus(true); })
         .catch(e=>{ clearTimeout(ackTimer); console.warn("claims write failed:", e.message); syncStatus(false, "claims: "+e.message); });
     }, 800);
@@ -2588,7 +2618,7 @@ function startSync(){
         window.AriaSync.pushClaims();
       } else if (snap.exists()){
         const d = snap.data() || {};
-        Store.state.claims = { comp: d.comp || {}, hab: d.hab || {}, journal: d.journal || {}, beast: d.beast || {}, ixl: d.ixl || {} };
+        Store.state.claims = { comp: d.comp || {}, hab: d.hab || {}, journal: d.journal || {}, beast: d.beast || {}, ixl: d.ixl || {}, reward: d.reward || "" };
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(Store.state)); } catch(e){}
       } else if (role === "aria" && hasLocal){
         // SELF-HEAL: no cloud doc but Aria has local claims — e.g. she marked items BEFORE the
@@ -2611,6 +2641,7 @@ function unionClaims(dst, src){
   ["beast","ixl","journal"].forEach(k=>{    // flat maps ({key:true} / {day:count}) — dst wins
     dst[k] = Object.assign({}, src[k] || {}, dst[k] || {});
   });
+  dst.reward = dst.reward || src.reward || "";   // her chosen prize — local pick wins
 }
 
 onAuthStateChanged(auth, (user)=>{
