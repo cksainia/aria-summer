@@ -950,8 +950,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v11 · version-gate";   // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 11;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v12 · aria-marks";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 12;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -976,9 +976,13 @@ const Store = {
     if (!this.state.ixl || typeof this.state.ixl !== "object") this.state.ixl = { items:{} };
     if (!this.state.ixl.items) this.state.ixl.items = {};
     // Aria's SELF-MARKS ("claims") — separate from confirmed data; synced via its own doc, NOT SYNC_FIELDS.
-    if (!this.state.claims || typeof this.state.claims !== "object") this.state.claims = { comp:{}, hab:{} };
-    if (!this.state.claims.comp) this.state.claims.comp = {};
-    if (!this.state.claims.hab)  this.state.claims.hab  = {};
+    // comp/hab: {day:{id:true}} · journal: {day:sentenceCount} · beast: {"ch:idx":true} · ixl: {"sec:skill":true}
+    if (!this.state.claims || typeof this.state.claims !== "object") this.state.claims = {};
+    if (!this.state.claims.comp)    this.state.claims.comp    = {};
+    if (!this.state.claims.hab)     this.state.claims.hab     = {};
+    if (!this.state.claims.journal) this.state.claims.journal = {};
+    if (!this.state.claims.beast)   this.state.claims.beast   = {};
+    if (!this.state.claims.ixl)     this.state.claims.ixl     = {};
     // shelf from plan (preserves statuses by id across refreshes; v6 = MTH chapter-book covers + mth2)
     // NOTE "<" not "!==": a stale cached client pushing an OLDER seed must never re-trigger a
     // rebuild here — a !== check made two mixed-version parents ping-pong seed 5<->6 at network
@@ -1155,13 +1159,32 @@ function habitsDoneOn(dayKey){ return PLAN.habits.filter(h=>habitDone(dayKey,h.i
 function ariaCanClaim(){ return window.ROLE === "aria" && !Store.state.parentMode; }   // Aria's own view only
 function claimComp(dayKey, id){ const d=Store.state.claims.comp[dayKey]; return !!(d && d[id]); }
 function claimHab(dayKey, id){ const d=Store.state.claims.hab[dayKey]; return !!(d && d[id]); }
+function saveClaims(){
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(Store.state)); } catch(e){}
+  if (window.AriaSync) window.AriaSync.pushClaims();
+}
 function setClaim(kind, dayKey, id, val){
   const bucket = kind==="hab" ? Store.state.claims.hab : Store.state.claims.comp;
   if (!bucket[dayKey]) bucket[dayKey] = {};
   if (val) bucket[dayKey][id] = true; else delete bucket[dayKey][id];
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(Store.state)); } catch(e){}
-  if (window.AriaSync) window.AriaSync.pushClaims();
+  saveClaims();
 }
+/* journaling claim = a sentence COUNT she reports for the day */
+function claimJournal(dayKey){ return (Store.state.claims.journal && Store.state.claims.journal[dayKey]) || 0; }
+function setClaimJournal(dayKey, n){
+  if (n<0) n=0;
+  if (n>0) Store.state.claims.journal[dayKey]=n; else delete Store.state.claims.journal[dayKey];
+  saveClaims();
+}
+/* Beast lessons + IXL skills claims (flat keys, mirroring their real stores) */
+function claimFlat(kind, key){ const b=Store.state.claims[kind]; return !!(b && b[key]); }
+function setClaimFlat(kind, key, val){
+  if (!Store.state.claims[kind]) Store.state.claims[kind] = {};
+  if (val) Store.state.claims[kind][key]=true; else delete Store.state.claims[kind][key];
+  saveClaims();
+}
+function claimBeast(n,i){ return claimFlat("beast", n+":"+i); }
+function claimIxl(si,ki){ return claimFlat("ixl", si+":"+ki); }
 function heartsTotal(){ let n=0; const H=Store.state.habits||{}; for(const d in H) n+=Object.keys(H[d]).length; return n; }
 function habitWeekCount(id){ const start=parseYMD(weekStartKey(todayKey())); let n=0; for(let i=0;i<7;i++){ if(habitDone(ymd(addDays(start,i)),id)) n++; } return n; }
 function badgeEarned(b){
@@ -1424,19 +1447,34 @@ function renderToday(){
     // Journaling = sentence counter (stepper); done when she reaches her goal
     if (t.id==="journal"){
       const n=journalCount(editDay), goal=t.goal;
-      const control = editing
-        ? `<div style="display:flex;align-items:center;gap:6px">
+      const cj = claimJournal(editDay), canClaimJ = ariaCanClaim() && editDay===todayKey();
+      let control;
+      if (editing){
+        control = `<div style="display:flex;align-items:center;gap:6px">
              <button class="goBtn" data-jdec style="padding:5px 13px;background:var(--soft);color:var(--ink);font-size:18px;line-height:1">−</button>
              <span data-jset style="font-weight:800;min-width:26px;text-align:center;font-size:16px;cursor:pointer;text-decoration:underline dotted">${n}</span>
              <button class="goBtn" data-jinc style="padding:5px 13px;font-size:18px;line-height:1">+</button>
-           </div>`
-        : `<div style="font-weight:800;color:${done?'var(--green)':'var(--muted)'};min-width:44px;text-align:right">${n}/${goal}</div>`;
+           </div>`;
+      } else if (canClaimJ){
+        // Aria's own counter — reports her sentence count as a claim (parent confirms)
+        control = `<div style="display:flex;align-items:center;gap:6px">
+             <button class="goBtn" data-cjdec style="padding:5px 13px;background:var(--soft);color:var(--ink);font-size:18px;line-height:1">−</button>
+             <span style="font-weight:800;min-width:26px;text-align:center;font-size:16px;color:#8a5a00">${cj}</span>
+             <button class="goBtn" data-cjinc style="padding:5px 13px;font-size:18px;line-height:1">+</button>
+           </div>`;
+      } else {
+        control = `<div style="font-weight:800;color:${done?'var(--green)':'var(--muted)'};min-width:44px;text-align:right">${n}/${goal}</div>`;
+      }
+      const jBadge = (cj>0 && cj!==n)
+        ? (editing ? ` <span class="claimBadge" data-jaccept="${cj}" style="cursor:pointer">🙋 Aria says ${cj} — tap to accept</span>`
+                   : ` <span class="claimBadge">🙋 you said ${cj} — waiting for ✓</span>`)
+        : "";
       html += `<div class="task${done?" done":""}">
         <div class="tIcon">${t.icon}</div>
-        <div class="tBody"><div class="tLabel">${t.label} <span class="tag core">CORE</span></div>
+        <div class="tBody"><div class="tLabel">${t.label} <span class="tag core">CORE</span>${jBadge}</div>
           <div class="tTarget">${goal} ${t.unit} · wrote ${n}</div></div>
         ${control}
-        <div class="check${done?' done':''}" style="cursor:default;margin-left:8px">${done?'✓':''}</div>
+        <div class="check${done?' done':(cj>=goal?' claim':'')}" style="cursor:default;margin-left:8px">${(done||cj>=goal)?'✓':''}</div>
       </div>`;
       return;
     }
@@ -1501,6 +1539,28 @@ function renderToday(){
       renderToday();
       if (!was){ const t=track(id); showToast("Nice! You marked "+(t?t.label:"it")+" ✓ — Mom/Dad will confirm 💛"); }
     });
+  });
+  // Aria's journal counter (claimed sentences, parent confirms)
+  const cjStep=(delta)=>{
+    const goal=(trackById("journal")||{}).goal||20;
+    const before=claimJournal(todayKey());
+    setClaimJournal(todayKey(), before+delta);
+    renderToday();
+    const now=claimJournal(todayKey());
+    if (before<goal && now>=goal) showToast("✍️ You told Mom/Dad you wrote "+now+" sentences — great writing! 💛");
+  };
+  const cji=document.querySelector("[data-cjinc]"); if(cji) cji.onclick=()=>cjStep(1);
+  const cjd=document.querySelector("[data-cjdec]"); if(cjd) cjd.onclick=()=>cjStep(-1);
+  // parent: one-tap accept of Aria's claimed sentence count
+  const ja=document.querySelector("[data-jaccept]");
+  if (ja) ja.addEventListener("click",()=>{
+    const c=+ja.getAttribute("data-jaccept");
+    const wasMet = editDay===todayKey() && dayMet(editDay);
+    setJournalCount(editDay, c);
+    const nowMet = editDay===todayKey() && dayMet(editDay);
+    renderHeader(); renderToday();
+    showToast("Accepted — journal set to "+c+" sentences ✓");
+    if (!wasMet && nowMet){ celebrate(); unlockToast("academics"); }
   });
   const bb=document.querySelector("[data-beast]");
   if (bb) bb.onclick=()=>{ view="beast"; beastOpenChapter=null; render(); };
@@ -1696,7 +1756,9 @@ function renderBeast(){
   html += `<div class="editHint" style="background:var(--tealL);border-color:#9fe0d8;color:#065f54">
       🎯 Auto-pace: aim for <b>${tgt} lesson${tgt>1?'s':''} today</b> · ${today} done · ${rem} left over ${days} learning days</div>`;
   if (Store.state.parentMode)
-    html += `<div class="editHint">✏️ Tap the lesson she's reached — it marks that one <b>and everything before it</b> done. Tap a done one to roll back.</div>`;
+    html += `<div class="editHint">✏️ Tap the lesson she's reached — it marks that one <b>and everything before it</b> done. Tap a done one to roll back. 🙋 = Aria says she did it.</div>`;
+  else if (ariaCanClaim())
+    html += `<div class="editHint">🙋 Tap a lesson you finished — Mom/Dad will confirm it. ✨</div>`;
   html += `<h2 class="sec">Tap a chapter to see lessons</h2>`;
 
   PLAN.beastChapters.forEach(ch=>{
@@ -1719,12 +1781,13 @@ function renderBeast(){
             </div>`;
             return;
           }
-          const d=beastItemDone(ch.num,i);
-          const checkCls="check"+(d?" done":"")+(editing?" editable":"");
+          const d=beastItemDone(ch.num,i), cl=claimBeast(ch.num,i), canC=ariaCanClaim();
+          const checkCls="check"+(d?" done":(cl?" claim":""))+((editing||canC)?" editable":"");
+          const bBadge=(cl && !d) ? (editing?' <span class="claimBadge">🙋 Aria says done</span>':' <span class="claimBadge">🙋 waiting for ✓</span>') : "";
           html += `<div class="task" style="padding:9px 12px;margin-bottom:6px">
             <div class="tIcon" style="width:32px;height:32px;font-size:17px">${ls.t?"📝":"✏️"}</div>
-            <div class="tBody"><div class="tLabel" style="font-size:14px">${esc(ls.n)}${ls.t?' <span class="tag opt">TEST</span>':''}</div></div>
-            <div class="${checkCls}" data-bitem="${ch.num}:${i}">${d?'✓':''}</div>
+            <div class="tBody"><div class="tLabel" style="font-size:14px">${esc(ls.n)}${ls.t?' <span class="tag opt">TEST</span>':''}${bBadge}</div></div>
+            <div class="${checkCls}" ${editing?`data-bitem="${ch.num}:${i}"`:(canC?`data-bclaim="${ch.num}:${i}"`:"")}>${(d||cl)?'✓':''}</div>
           </div>`;
         });
         html += `</div>`;
@@ -1779,6 +1842,16 @@ function renderBeast(){
       });
     });
   }
+  // Aria's lesson claims (individual toggles; parent confirms via the normal tap-through)
+  document.querySelectorAll("[data-bclaim]").forEach(el=>{
+    el.addEventListener("click",e=>{
+      e.stopPropagation();
+      const key=el.getAttribute("data-bclaim"), was=claimFlat("beast", key);
+      setClaimFlat("beast", key, !was);
+      renderBeast();
+      if (!was) showToast("🧮 Marked! Mom/Dad will confirm 💛");
+    });
+  });
 }
 
 function renderIxl(){
@@ -1801,7 +1874,9 @@ function renderIxl(){
   html += `<div class="editHint" style="background:var(--tealL);border-color:#9fe0d8;color:#065f54">
       🎯 Target: <b>${tgt} skills/day</b> · ${today} done today · ${rem} left${days?` over ${days} learning days`:""}</div>`;
   if (editing)
-    html += `<div class="editHint">✏️ Tap a skill to mark it <b>mastered</b> (date-stamped). Tap again to undo.</div>`;
+    html += `<div class="editHint">✏️ Tap a skill to mark it <b>mastered</b> (date-stamped). Tap again to undo. 🙋 = Aria says she did it.</div>`;
+  else if (ariaCanClaim())
+    html += `<div class="editHint">🙋 Tap a skill you mastered — Mom/Dad will confirm it. ✨</div>`;
 
   let lastSubject=null;
   PLAN.ixlPlan.forEach((sec,si)=>{
@@ -1817,11 +1892,13 @@ function renderIxl(){
     if (isOpen){
       html += `<div style="margin:-2px 0 12px">`;
       sec.skills.forEach((sk,ki)=>{
-        const d=ixlSkillDone(si,ki), checkCls="check"+(d?" done":"")+(editing?" editable":"");
+        const d=ixlSkillDone(si,ki), cl=claimIxl(si,ki), canC=ariaCanClaim();
+        const checkCls="check"+(d?" done":(cl?" claim":""))+((editing||canC)?" editable":"");
+        const xBadge=(cl && !d) ? (editing?' <span class="claimBadge">🙋 Aria says done</span>':' <span class="claimBadge">🙋 waiting for ✓</span>') : "";
         html += `<div class="task" style="padding:9px 12px;margin-bottom:6px">
           <div class="tIcon" style="width:32px;height:32px;font-size:15px">${d?'✅':'📊'}</div>
-          <div class="tBody"><div class="tLabel" style="font-size:13.5px;font-weight:600">${esc(sk)}</div></div>
-          <div class="${checkCls}" data-ixlskill="${si}:${ki}">${d?'✓':''}</div>
+          <div class="tBody"><div class="tLabel" style="font-size:13.5px;font-weight:600">${esc(sk)}${xBadge}</div></div>
+          <div class="${checkCls}" ${editing?`data-ixlskill="${si}:${ki}"`:(canC?`data-ixlclaim="${si}:${ki}"`:"")}>${(d||cl)?'✓':''}</div>
         </div>`;
       });
       html += `</div>`;
@@ -1846,6 +1923,16 @@ function renderIxl(){
       });
     });
   }
+  // Aria's skill claims (parent confirms with the normal tap)
+  document.querySelectorAll("[data-ixlclaim]").forEach(el=>{
+    el.addEventListener("click",e=>{
+      e.stopPropagation();
+      const key=el.getAttribute("data-ixlclaim"), was=claimFlat("ixl", key);
+      setClaimFlat("ixl", key, !was);
+      renderIxl();
+      if (!was) showToast("📊 Marked! Mom/Dad will confirm 💛");
+    });
+  });
 }
 
 function renderHindi(){
@@ -2387,7 +2474,8 @@ window.AriaSync = {
     clearTimeout(claimsPushTimer);
     claimsPushTimer = setTimeout(()=>{
       const ackTimer = setTimeout(()=>{ syncStatus(false, "cloud not accepting writes (quota/offline?) — marks queued"); }, 12000);
-      setDoc(claimsRef, { comp: Store.state.claims.comp, hab: Store.state.claims.hab })
+      const c = Store.state.claims;
+      setDoc(claimsRef, { comp: c.comp||{}, hab: c.hab||{}, journal: c.journal||{}, beast: c.beast||{}, ixl: c.ixl||{} })
         .then(()=>{ clearTimeout(ackTimer); syncStatus(true); })
         .catch(e=>{ clearTimeout(ackTimer); console.warn("claims write failed:", e.message); syncStatus(false, "claims: "+e.message); });
     }, 800);
@@ -2439,15 +2527,15 @@ function startSync(){
       clearTimeout(claimsTimer);
       claimsLoaded = true;
       const local = Store.state.claims || { comp:{}, hab:{} };
-      const hasLocal = Object.keys(local.comp||{}).length > 0 || Object.keys(local.hab||{}).length > 0;
+      const hasLocal = ["comp","hab","journal","beast","ixl"].some(k => Object.keys(local[k]||{}).length > 0);
       if (claimsPendingPush){
         // taps happened while the first snapshot was still loading — local wins, merged over cloud
         claimsPendingPush = false;
-        if (snap.exists()){ const d=snap.data()||{}; unionClaims(Store.state.claims, { comp:d.comp||{}, hab:d.hab||{} }); }
+        if (snap.exists()){ const d=snap.data()||{}; unionClaims(Store.state.claims, { comp:d.comp||{}, hab:d.hab||{}, journal:d.journal||{}, beast:d.beast||{}, ixl:d.ixl||{} }); }
         window.AriaSync.pushClaims();
       } else if (snap.exists()){
         const d = snap.data() || {};
-        Store.state.claims = { comp: d.comp || {}, hab: d.hab || {} };
+        Store.state.claims = { comp: d.comp || {}, hab: d.hab || {}, journal: d.journal || {}, beast: d.beast || {}, ixl: d.ixl || {} };
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(Store.state)); } catch(e){}
       } else if (role === "aria" && hasLocal){
         // SELF-HEAL: no cloud doc but Aria has local claims — e.g. she marked items BEFORE the
@@ -2460,12 +2548,15 @@ function startSync(){
   }
 }
 
-// union src INTO dst at the per-day, per-item level (dst wins on conflicts — fresher local taps)
+// union src INTO dst (dst wins on conflicts — fresher local taps)
 function unionClaims(dst, src){
-  ["comp","hab"].forEach(k=>{
+  ["comp","hab"].forEach(k=>{               // {day:{id:true}} — merge per-day, per-item
     if (!dst[k]) dst[k] = {};
     const s = src[k] || {};
     for (const day in s){ dst[k][day] = Object.assign({}, s[day], dst[k][day] || {}); }
+  });
+  ["beast","ixl","journal"].forEach(k=>{    // flat maps ({key:true} / {day:count}) — dst wins
+    dst[k] = Object.assign({}, src[k] || {}, dst[k] || {});
   });
 }
 
