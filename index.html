@@ -451,11 +451,14 @@
 <!-- Manage a book (parent-only): upload cover / delete -->
 <div class="modal" id="bookManageModal" role="dialog" aria-modal="true" aria-label="Manage book">
   <div class="sheet" style="max-width:360px;text-align:center">
-    <h3 id="bmTitle" style="margin:0 0 4px">Manage book</h3>
-    <p id="bmSub" style="margin:0 0 12px;color:var(--muted);font-size:13px"></p>
+    <h3 style="margin:0 0 10px">📚 Manage book</h3>
     <div class="addCov" style="margin:0 auto 12px"><img id="bmCover" alt=""><span id="bmCoverFb">📖</span></div>
+    <input id="bmTitleIn" class="siIn" placeholder="Title" style="margin:0 0 7px;text-align:left">
+    <input id="bmAuthorIn" class="siIn" placeholder="Author" style="margin:0 0 6px;text-align:left">
+    <p id="bmSub" style="margin:0 0 10px;color:var(--muted);font-size:12px"></p>
+    <button class="btn primary" id="bmSaveInfo" style="width:100%;margin-bottom:10px">💾 Save name &amp; author</button>
     <input type="file" id="bmFile" accept="image/*" style="display:none">
-    <button class="btn primary" id="bmUpload" style="width:100%;margin-bottom:8px">📷 Upload a cover photo</button>
+    <button class="btn ghost" id="bmUpload" style="width:100%;margin-bottom:8px">📷 Upload a cover photo</button>
     <button class="btn ghost" id="bmDelete" style="width:100%;margin-bottom:8px;color:var(--coral);border-color:#f3b1a6">🗑️ Remove from library</button>
     <button class="btn ghost" id="bmClose" style="width:100%">Close</button>
     <div id="bmMsg" class="scanMsg" style="min-height:0"></div>
@@ -1059,8 +1062,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v26 · read-badge";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 26;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v27 · beast-toggle";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 27;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore","deletedBooks"]; // what lives in the cloud doc
 const Store = {
@@ -1437,6 +1440,8 @@ function chapComplete(ch){
   return !!Store.state.beast.chap[ch.num];
 }
 function chaptersComplete(){ return PLAN.beastChapters.filter(chapComplete).length; }
+function beastLessonsDone(){ let n=0; PLAN.beastChapters.forEach(ch=>ch.lessons.forEach((l,i)=>{ if(!l.g && beastItemDone(ch.num,i)) n++; })); return n; }
+function beastLessonsTotal(){ let n=0; PLAN.beastChapters.forEach(ch=>ch.lessons.forEach(l=>{ if(!l.g) n++; })); return n; }
 function currentChapter(){ return PLAN.beastChapters.find(c=>!chapComplete(c)) || PLAN.beastChapters[PLAN.beastChapters.length-1]; }
 
 const BEAST_EST = 20; // estimated lessons for chapters not yet detailed (for pacing)
@@ -1901,20 +1906,20 @@ function renderProgress(){
 function renderBeast(){
   const editing = Store.state.parentMode;
   if (beastOpenChapter==null) beastOpenChapter = currentChapter().num;
-  const totalCh = PLAN.beastChapters.length, doneCh = chaptersComplete();
+  const doneLes = beastLessonsDone(), totLes = beastLessonsTotal();
 
   let html = `<div style="display:flex;align-items:center;gap:10px;margin:8px 0 2px">
       <button id="beastBack" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer;font-family:inherit">‹ Back</button>
       <div style="font-weight:800;font-size:17px">🧮 Beast Academy</div></div>`;
   html += `<div class="quota" style="background:var(--soft);border:1px solid var(--line);color:var(--ink)">
-      <div class="qtop"><span>Chapters complete this summer</span><span>${doneCh} / ${totalCh}</span></div>
-      <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${Math.round(doneCh/totalCh*100)}%"></div></div>
+      <div class="qtop"><span>Lessons complete this summer</span><span>${doneLes} / ${totLes}</span></div>
+      <div class="qbar" style="background:#e7e1d6"><div class="qfill" style="width:${totLes?Math.round(doneLes/totLes*100):0}%"></div></div>
     </div>`;
   const tgt=beastDailyTarget(), today=beastDoneToday(), rem=beastRemainingLessons(), days=activeDaysFrom(todayKey(), beastEndKey());
   html += `<div class="editHint" style="background:var(--tealL);border-color:#9fe0d8;color:#065f54">
       🎯 Auto-pace: aim for <b>${tgt} lesson${tgt>1?'s':''} today</b> · ${today} done · ${rem} left over ${days} learning days</div>`;
   if (Store.state.parentMode)
-    html += `<div class="editHint">✏️ Tap the lesson she's reached — it marks that one <b>and everything before it</b> done. Tap a done one to roll back. 🙋 = Aria says she did it.</div>`;
+    html += `<div class="editHint">✏️ Tap any lesson to mark it done (tap again to undo). Each lesson is independent, so forked paths work. 🙋 = Aria says she did it.</div>`;
   else if (ariaCanClaim())
     html += `<div class="editHint">🙋 Tap a lesson you finished — Mom/Dad will confirm it. ✨</div>`;
   html += `<h2 class="sec">Tap a chapter to see lessons</h2>`;
@@ -1972,21 +1977,13 @@ function renderBeast(){
       el.addEventListener("click",e=>{
         e.stopPropagation();
         const [n,i]=el.getAttribute("data-bitem").split(":").map(Number);
-        const ch=beastChap(n), wasDone=beastItemDone(n,i), before=chaptersComplete(), t=todayKey();
-        const undoSnap = JSON.stringify(Store.state.beast.items);   // snapshot for Undo
-        // sequential "tap-through": mark DONE up to & including this lesson, or CLEAR from here on
-        ch.lessons.forEach((ls,idx)=>{
-          if (ls.g) return;                                  // guides don't count
-          const key=n+":"+idx;
-          if (!wasDone && idx<=i){ if(!Store.state.beast.items[key]) Store.state.beast.items[key]=t; } // only stamp NEW ones (keep real dates)
-          else if (wasDone && idx>=i) delete Store.state.beast.items[key]; // not done from here
-        });
-        Store.save();                                        // one write/push
+        const key=n+":"+i, prevVal=Store.state.beast.items[key], wasDone=!!prevVal, before=chaptersComplete();
+        setBeastItem(n,i,!wasDone);                          // toggle ONLY this lesson (forked paths — no cascade)
         renderHeader(); renderBeast();
         if (chaptersComplete()>before) celebrate();
-        const ln = ch.lessons[i] ? ch.lessons[i].n : "lesson";
-        showToast((wasDone ? "Cleared from “"+ln+"”" : "Marked through “"+ln+"”"),
-          ()=>{ Store.state.beast.items = JSON.parse(undoSnap); Store.save(); renderHeader(); renderBeast(); });
+        const ln = (beastChap(n).lessons[i]||{}).n || "lesson";
+        showToast((wasDone ? "Cleared “"+ln+"”" : "Marked “"+ln+"” ✓"),
+          ()=>{ if(prevVal) Store.state.beast.items[key]=prevVal; else delete Store.state.beast.items[key]; Store.save(); renderHeader(); renderBeast(); });
       });
     });
     document.querySelectorAll("[data-chapdone]").forEach(el=>{
@@ -2673,7 +2670,8 @@ let bmBook=null;
 function openBookManage(id){
   const b=Store.state.books.find(x=>x.id===id); if(!b) return;
   bmBook=b;
-  document.getElementById("bmTitle").textContent=b.title;
+  document.getElementById("bmTitleIn").value=b.title||"";
+  document.getElementById("bmAuthorIn").value=b.author||"";
   document.getElementById("bmSub").textContent=(b.series||"")+(b.isbn?` · ISBN ${b.isbn}`:"");
   const img=document.getElementById("bmCover"), fb=document.getElementById("bmCoverFb");
   if (b.cover){ img.style.display=""; fb.style.display="none"; img.onerror=()=>{ img.style.display="none"; fb.style.display=""; }; img.src=b.cover; }
@@ -2684,6 +2682,17 @@ function openBookManage(id){
 }
 function closeBookManage(){ document.getElementById("bookManageModal").classList.remove("show"); bmBook=null; }
 document.getElementById("bmClose").addEventListener("click", closeBookManage);
+document.getElementById("bmSaveInfo").addEventListener("click", ()=>{
+  if(!bmBook) return;
+  const t=document.getElementById("bmTitleIn").value.trim();
+  const a=document.getElementById("bmAuthorIn").value.trim();
+  const msg=document.getElementById("bmMsg");
+  if(!t){ msg.textContent="Title can't be empty."; msg.className="scanMsg err"; return; }
+  bmBook.title=t; bmBook.author=a; Store.save();   // title/author live in synced state.books
+  msg.textContent="✓ Name & author saved — syncing."; msg.className="scanMsg ok";
+  renderHeader(); if (view==="books"){ const y=window.scrollY; renderBooks(); window.scrollTo(0,y); }
+  showToast("Book details updated 📚");
+});
 document.getElementById("bmUpload").addEventListener("click", ()=>document.getElementById("bmFile").click());
 document.getElementById("bmFile").addEventListener("change", async e=>{
   const file=e.target.files&&e.target.files[0]; if(!file||!bmBook) return;
