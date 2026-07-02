@@ -234,6 +234,29 @@
   .scanMsg.ok{color:var(--green);font-weight:700;}
   .addCov{width:92px;height:136px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:34px;border:1px solid var(--line);}
   .addCov img{width:100%;height:100%;object-fit:cover;}
+  /* ===== iPad / tablet (≥700px): wider canvas, floating pill nav, two-column groups ===== */
+  @media (min-width:700px){
+    .wrap{max-width:820px;padding:0 24px;}
+    .hname{font-size:30px;}
+    body{padding-bottom:110px;}
+    /* floating centered pill nav instead of an edge-to-edge bar */
+    nav{left:50%;right:auto;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));
+      width:min(560px,92vw);border:1px solid var(--line);border-radius:999px;
+      box-shadow:0 10px 32px rgba(20,35,58,.18);overflow:hidden;}
+    nav button{padding:10px 0 12px;}
+    /* two-column layouts where lists get long */
+    .habitList{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .habitList .task{margin-bottom:0;}
+    .lessonList{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;}
+    .lessonList .task{margin-bottom:0 !important;}
+    .unlocks{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .unlockHead{grid-column:1/-1;margin-bottom:0;}
+    .unlock{margin-top:0;}
+    /* roomier shelves & stat cards */
+    .bookGrid{grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:18px 14px;}
+    .stats{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));}
+  }
+
   /* Version gate banner */
   .updateBar{display:none;position:fixed;top:0;left:0;right:0;z-index:60;background:#1A2E4A;color:#fff;
     padding:12px 16px;font-size:14px;font-weight:700;align-items:center;justify-content:center;gap:12px;
@@ -950,8 +973,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v13 · habit-days";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 13;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v14 · ipad-ui";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 14;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -1773,7 +1796,7 @@ function renderBeast(){
     </div>`;
     if (isOpen){
       if (tot){
-        html += `<div style="margin:-2px 0 12px">`;
+        html += `<div class="lessonList" style="margin:-2px 0 12px">`;
         ch.lessons.forEach((ls,i)=>{
           if (ls.g){ // comic guide — read-only, not tracked
             html += `<div class="task" style="padding:8px 12px;margin-bottom:6px;opacity:.75;background:var(--soft);box-shadow:none">
@@ -1891,7 +1914,7 @@ function renderIxl(){
       <span class="statusPill ${complete?'st-finished':(dn?'st-reading':'st-unread')}">${complete?'Done':(dn?pct+'%':'—')}</span>
     </div>`;
     if (isOpen){
-      html += `<div style="margin:-2px 0 12px">`;
+      html += `<div class="lessonList" style="margin:-2px 0 12px">`;
       sec.skills.forEach((sk,ki)=>{
         const d=ixlSkillDone(si,ki), cl=claimIxl(si,ki), canC=ariaCanClaim();
         const checkCls="check"+(d?" done":(cl?" claim":""))+((editing||canC)?" editable":"");
@@ -2048,7 +2071,7 @@ function renderHabits(){
     </div>`;
 
   html += renderUnlocksHTML(t);
-  html += `<h2 class="sec">${isToday?"Today's habits":"Habits"}</h2>`;
+  html += `<h2 class="sec">${isToday?"Today's habits":"Habits"}</h2><div class="habitList">`;
   const canClaim = ariaCanClaim();
   PLAN.habits.forEach(h=>{
     const d = habitDone(t,h.id), claimed = claimHab(t,h.id);
@@ -2060,6 +2083,7 @@ function renderHabits(){
       <div class="${checkCls}" ${editing?`data-habit="${h.id}"`:(canClaim?`data-habitclaim="${h.id}"`:"")}>${(d||claimed)?"✓":""}</div>
     </div>`;
   });
+  html += `</div>`;   // /habitList
 
   html += `<h2 class="sec">This week's badges</h2><div class="stats">`;
   PLAN.badges.forEach(b=>{
