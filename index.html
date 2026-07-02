@@ -950,8 +950,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v12 · aria-marks";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 12;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v13 · habit-days";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 13;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -1617,10 +1617,11 @@ function wireToggles(){
     });
   });
 }
-function wireDayNav(){
-  const prev=document.getElementById("dPrev"), next=document.getElementById("dNext");
-  if (prev) prev.onclick=()=>{ const k=ymd(addDays(parseYMD(editDay),-1)); if (inWindow(k)){ editDay=k; renderToday(); } };
-  if (next) next.onclick=()=>{ const k=ymd(addDays(parseYMD(editDay),1)); if (k<=todayKey() && inWindow(k)){ editDay=k; renderToday(); } };
+function wireDayNav(rerender){
+  const rr = rerender || renderToday;   // shared by Today and Habits (same editDay, so the
+  const prev=document.getElementById("dPrev"), next=document.getElementById("dNext");   // reviewed day carries across tabs)
+  if (prev) prev.onclick=()=>{ const k=ymd(addDays(parseYMD(editDay),-1)); if (inWindow(k)){ editDay=k; rr(); } };
+  if (next) next.onclick=()=>{ const k=ymd(addDays(parseYMD(editDay),1)); if (k<=todayKey() && inWindow(k)){ editDay=k; rr(); } };
 }
 
 function renderBooks(){
@@ -2014,16 +2015,26 @@ function showToast(msg, undoFn){
 }
 
 function renderHabits(){
-  const editing = Store.state.parentMode, t = todayKey();
+  const editing = Store.state.parentMode;
+  const t = editing ? editDay : todayKey();     // parent can review/update past days (same day as Today tab)
+  const isToday = t === todayKey();
   const done = habitsDoneOn(t), goal = PLAN.habitDailyGoal;
-  let html = `<div class="habitHero">
+  let html = "";
+  if (editing){
+    html += `<div class="editHint">✏️ Parent mode — tap a circle to mark habits. Reviewing: <b>${prettyDate(t)}</b></div>`;
+    html += `<div class="dayNav">
+      <button id="dPrev">‹</button>
+      <div class="lbl">${prettyDate(t)}</div>
+      <button id="dNext">›</button></div>`;
+  }
+  html += `<div class="habitHero">
       <div style="font-size:13px;letter-spacing:1.5px;text-transform:uppercase;opacity:.8">Good Habits &amp; Helping</div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px">
-        <div style="font-size:22px;font-weight:800">${done}/${goal} today</div>
+        <div style="font-size:22px;font-weight:800">${done}/${goal} ${isToday?"today":"that day"}</div>
         <div class="heartChip">❤️ ${heartsTotal()} hearts</div>
       </div>
       <div class="qbar" style="background:rgba(255,255,255,.25);margin-top:10px"><div class="qfill" style="width:${Math.min(100,Math.round(done/goal*100))}%;background:linear-gradient(90deg,#FFD24A,#fff)"></div></div>
-      <div style="font-size:12px;opacity:.95;margin-top:8px">${done>=goal ? "🌟 Helper of the Day — amazing!" : (done? "Keep going — kindness counts! 💛" : "Let's have a great day! 💛")}</div>
+      <div style="font-size:12px;opacity:.95;margin-top:8px">${done>=goal ? "🌟 Helper of the Day — amazing!" : (done? "Keep going — kindness counts! 💛" : (isToday?"Let's have a great day! 💛":"Marking for "+prettyDate(t)))}</div>
     </div>`;
 
   const stars = totalRewardStars(), per = PLAN.reward.perReward, totR = PLAN.reward.totalRewards;
@@ -2037,7 +2048,7 @@ function renderHabits(){
     </div>`;
 
   html += renderUnlocksHTML(t);
-  html += `<h2 class="sec">Today's habits</h2>`;
+  html += `<h2 class="sec">${isToday?"Today's habits":"Habits"}</h2>`;
   const canClaim = ariaCanClaim();
   PLAN.habits.forEach(h=>{
     const d = habitDone(t,h.id), claimed = claimHab(t,h.id);
@@ -2063,6 +2074,7 @@ function renderHabits(){
 
   document.getElementById("main").innerHTML = html;
   if (editing){
+    wireDayNav(renderHabits);
     document.querySelectorAll("[data-habit]").forEach(el=>{
       el.addEventListener("click",()=>{
         const id=el.getAttribute("data-habit"), was=habitDone(t,id);
