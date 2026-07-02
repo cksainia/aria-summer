@@ -1059,8 +1059,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v24 · durable-books";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 24;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v25 · cover-thumbs";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 25;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore","deletedBooks"]; // what lives in the cloud doc
 const Store = {
@@ -2645,19 +2645,28 @@ document.getElementById("covGo").addEventListener("click", runCoverSearch);
    uploaded cover shows on every device.
    ============================================================ */
 function readAsDataURL(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
-function drawScaled(dataUrl, maxW, quality){
+function drawScaled(dataUrl, maxSide, quality){   // caps the LONGEST side (handles any aspect ratio)
   return new Promise((res,rej)=>{ const im=new Image();
-    im.onload=()=>{ const scale=Math.min(1, maxW/im.width);
+    im.onload=()=>{ const scale=Math.min(1, maxSide/Math.max(im.width, im.height));
       const w=Math.max(1,Math.round(im.width*scale)), h=Math.max(1,Math.round(im.height*scale));
       const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
-      cv.getContext("2d").drawImage(im,0,0,w,h);
+      const ctx=cv.getContext("2d"); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+      ctx.drawImage(im,0,0,w,h);
       res(cv.toDataURL("image/jpeg", quality)); };
     im.onerror=rej; im.src=dataUrl; });
 }
-async function compressCover(file){           // returns a data: URL under ~110KB
+// Covers only ever render ~120–150px wide, so a ~360px longest side stays crisp even on retina.
+// A full-res web image (often 1500px+, several MB) is downscaled + JPEG-compressed to a small
+// thumbnail; we shrink quality first, then dimensions, until it fits the byte budget. This keeps
+// each uploaded cover ~30–45KB so many can live inside the synced books doc without bloating it.
+const COVER_MAX_SIDE = 360, COVER_BUDGET = 62000;   // data-URL chars ≈ 46KB actual per cover
+async function compressCover(file){
   const raw = await readAsDataURL(file);
-  let w=420, q=0.72, url = await drawScaled(raw, w, q);
-  for (let i=0; i<6 && url.length>110000; i++){ if (q>0.5) q-=0.1; else w=Math.round(w*0.82); url = await drawScaled(raw, w, q); }
+  let side=COVER_MAX_SIDE, q=0.70, url = await drawScaled(raw, side, q);
+  for (let i=0; i<8 && url.length>COVER_BUDGET; i++){
+    if (q>0.45) q-=0.08; else side=Math.round(side*0.85);
+    url = await drawScaled(raw, side, q);
+  }
   return url;
 }
 let bmBook=null;
@@ -2684,7 +2693,8 @@ document.getElementById("bmFile").addEventListener("change", async e=>{
     bmBook.cover=url; Store.save();
     const img=document.getElementById("bmCover"), fb=document.getElementById("bmCoverFb");
     img.style.display=""; fb.style.display="none"; img.src=url;
-    msg.textContent="✓ Cover updated — saved & syncing."; msg.className="scanMsg ok";
+    const kb=Math.max(1,Math.round(url.length*0.75/1024));
+    msg.textContent=`✓ Cover updated — resized to ${kb} KB, saved & syncing.`; msg.className="scanMsg ok";
     renderHeader(); if (view==="books") { const y=window.scrollY; renderBooks(); window.scrollTo(0,y); }
     showToast("Cover updated 📚");
   } catch(err){ msg.textContent="Couldn't read that image — try another photo."; msg.className="scanMsg err"; }
