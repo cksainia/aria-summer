@@ -126,7 +126,6 @@
   .bcard.read .cov{box-shadow:0 0 0 2px var(--gold),var(--shadow);}
   .bcard.unr .cov img{opacity:.8;}
   .bcard.prev .cov{box-shadow:0 0 0 2px #c2bcb0,var(--shadow);}
-  .bcard.prev .cov img{opacity:.4;filter:grayscale(.5);}
   .bcard.editable{cursor:pointer;}
   .statusDot{position:absolute;top:5px;right:5px;width:21px;height:21px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.35);}
@@ -261,6 +260,11 @@
   .covRow .cstat{font-size:12px;font-weight:800;flex-shrink:0;}
   .covRow.ok{border-color:#9fe7c4;background:var(--greenL);}
   .covRow.fail{border-color:#f3b1a6;}
+  /* per-book manage button (parent only) */
+  .bManage{position:absolute;top:5px;left:5px;width:26px;height:26px;border-radius:8px;border:none;
+    background:rgba(20,35,58,.72);color:#fff;font-size:15px;font-weight:800;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;z-index:2;padding:0;}
+  .bManage:hover{background:rgba(20,35,58,.95);}
   /* ===== iPad / tablet (≥700px): wider canvas, floating pill nav, two-column groups ===== */
   @media (min-width:700px){
     .wrap{max-width:820px;padding:0 24px;}
@@ -441,6 +445,20 @@
       <button class="btn ghost" id="covCancel">Close</button>
       <button class="btn primary" id="covGo">🔍 Search selected</button>
     </div>
+  </div>
+</div>
+
+<!-- Manage a book (parent-only): upload cover / delete -->
+<div class="modal" id="bookManageModal" role="dialog" aria-modal="true" aria-label="Manage book">
+  <div class="sheet" style="max-width:360px;text-align:center">
+    <h3 id="bmTitle" style="margin:0 0 4px">Manage book</h3>
+    <p id="bmSub" style="margin:0 0 12px;color:var(--muted);font-size:13px"></p>
+    <div class="addCov" style="margin:0 auto 12px"><img id="bmCover" alt=""><span id="bmCoverFb">📖</span></div>
+    <input type="file" id="bmFile" accept="image/*" style="display:none">
+    <button class="btn primary" id="bmUpload" style="width:100%;margin-bottom:8px">📷 Upload a cover photo</button>
+    <button class="btn ghost" id="bmDelete" style="width:100%;margin-bottom:8px;color:var(--coral);border-color:#f3b1a6">🗑️ Remove from library</button>
+    <button class="btn ghost" id="bmClose" style="width:100%">Close</button>
+    <div id="bmMsg" class="scanMsg" style="min-height:0"></div>
   </div>
 </div>
 
@@ -677,44 +695,44 @@ window.PLAN = {
   ],
   books: [
     // Amulet
-    { id:"b4", series:"Amulet", title:"The Stonekeeper", author:"Kazu Kibuishi", status:"unread", cover:"covers/b4.jpg" },
-    { id:"b5", series:"Amulet", title:"The Stonekeeper's Curse", author:"Kazu Kibuishi", status:"unread", cover:"covers/b5.jpg" },
-    { id:"b6", series:"Amulet", title:"The Cloud Searchers", author:"Kazu Kibuishi", status:"unread", cover:"covers/b6.jpg" },
-    { id:"b7", series:"Amulet", title:"The Last Council", author:"Kazu Kibuishi", status:"unread", cover:"covers/b7.jpg" },
-    { id:"b8", series:"Amulet", title:"Prince of the Elves", author:"Kazu Kibuishi", status:"unread", cover:"covers/b8.jpg" },
-    { id:"b44", series:"Amulet", title:"Escape From Lucien", author:"Kazu Kibuishi", status:"unread", cover:"covers/b44.jpg" },
-    { id:"b1", series:"Amulet", title:"Firelight", author:"Kazu Kibuishi", status:"unread", cover:"covers/b1.jpg" },
-    { id:"b2", series:"Amulet", title:"Supernova", author:"Kazu Kibuishi", status:"unread", cover:"covers/b2.jpg" },
-    { id:"b3", series:"Amulet", title:"Waverider", author:"Kazu Kibuishi", status:"unread", cover:"covers/b3.jpg" },
+    { id:"b4", series:"Amulet", title:"The Stonekeeper", author:"Kazu Kibuishi", isbn:"9780439846813", status:"unread", cover:"covers/b4.jpg" },
+    { id:"b5", series:"Amulet", title:"The Stonekeeper's Curse", author:"Kazu Kibuishi", isbn:"9780439846837", status:"unread", cover:"covers/b5.jpg" },
+    { id:"b6", series:"Amulet", title:"The Cloud Searchers", author:"Kazu Kibuishi", isbn:"9780545208857", status:"unread", cover:"covers/b6.jpg" },
+    { id:"b7", series:"Amulet", title:"The Last Council", author:"Kazu Kibuishi", isbn:"9780545208871", status:"unread", cover:"covers/b7.jpg" },
+    { id:"b8", series:"Amulet", title:"Prince of the Elves", author:"Kazu Kibuishi", isbn:"9780545208895", status:"unread", cover:"covers/b8.jpg" },
+    { id:"b44", series:"Amulet", title:"Escape From Lucien", author:"Kazu Kibuishi", isbn:"9780545433150", status:"unread", cover:"covers/b44.jpg" },
+    { id:"b1", series:"Amulet", title:"Firelight", author:"Kazu Kibuishi", isbn:"9780545433167", status:"unread", cover:"covers/b1.jpg" },
+    { id:"b2", series:"Amulet", title:"Supernova", author:"Kazu Kibuishi", isbn:"9780545828604", status:"unread", cover:"covers/b2.jpg" },
+    { id:"b3", series:"Amulet", title:"Waverider", author:"Kazu Kibuishi", isbn:"9780545828659", status:"unread", cover:"covers/b3.jpg" },
     // Dog Man
-    { id:"b25", series:"Dog Man", title:"Dog Man", author:"Dav Pilkey", status:"unread", cover:"covers/b25.jpg" },
-    { id:"b26", series:"Dog Man", title:"Dog Man Unleashed", author:"Dav Pilkey", status:"unread", cover:"covers/b26.jpg" },
-    { id:"b27", series:"Dog Man", title:"Dog Man: a Tale of Two Kitties", author:"Dav Pilkey", status:"unread", cover:"covers/b27.jpg" },
-    { id:"b28", series:"Dog Man", title:"Dog Man and Cat Kid", author:"Dav Pilkey", status:"unread", cover:"covers/b28.jpg" },
-    { id:"b29", series:"Dog Man", title:"Dog Man: Lord of the Fleas", author:"Dav Pilkey", status:"unread", cover:"covers/b29.jpg" },
-    { id:"b30", series:"Dog Man", title:"Dog Man: Brawl of the Wild", author:"Dav Pilkey", status:"unread", cover:"covers/b30.jpg" },
-    { id:"b32", series:"Dog Man", title:"Fetch-22", author:"Dav Pilkey", status:"unread", cover:"covers/b32.jpg" },
-    { id:"b33", series:"Dog Man", title:"Dog Man: Grime and Punishment", author:"Dav Pilkey", status:"unread", cover:"covers/b33.jpg" },
-    { id:"b34", series:"Dog Man", title:"Dog Man: Mothering Heights", author:"Dav Pilkey", status:"unread", cover:"covers/b34.jpg" },
-    { id:"b36", series:"Dog Man", title:"Dog Man: Twenty Thousand Fleas Under the Sea", author:"Dav Pilkey", status:"unread", cover:"covers/b36.jpg" },
-    { id:"b35", series:"Dog Man", title:"Dog Man: The Scarlet Shedder", author:"Dav Pilkey", status:"unread", cover:"covers/b35.jpg" },
-    { id:"b38", series:"Dog Man", title:"Dog Man: Big Jim Begins", author:"Dav Pilkey", status:"unread", cover:"covers/b38.jpg" },
-    { id:"b37", series:"Dog Man", title:"Dog Man: Big Jim Believes", author:"Dav Pilkey", status:"unread", cover:"covers/b37.jpg" },
-    { id:"b31", series:"Dog Man", title:"Dog Man: For Whom the Ball Rolls", author:"Dav Pilkey", status:"unread", cover:"covers/b31.jpg" },
+    { id:"b25", series:"Dog Man", title:"Dog Man", author:"Dav Pilkey", isbn:"9781338741032", status:"unread", cover:"covers/b25.jpg" },
+    { id:"b26", series:"Dog Man", title:"Dog Man Unleashed", author:"Dav Pilkey", isbn:"9781338741049", status:"unread", cover:"covers/b26.jpg" },
+    { id:"b27", series:"Dog Man", title:"Dog Man: a Tale of Two Kitties", author:"Dav Pilkey", isbn:"9781338741056", status:"unread", cover:"covers/b27.jpg" },
+    { id:"b28", series:"Dog Man", title:"Dog Man and Cat Kid", author:"Dav Pilkey", isbn:"9781338741063", status:"unread", cover:"covers/b28.jpg" },
+    { id:"b29", series:"Dog Man", title:"Dog Man: Lord of the Fleas", author:"Dav Pilkey", isbn:"9781338741070", status:"unread", cover:"covers/b29.jpg" },
+    { id:"b30", series:"Dog Man", title:"Dog Man: Brawl of the Wild", author:"Dav Pilkey", isbn:"9781338741087", status:"unread", cover:"covers/b30.jpg" },
+    { id:"b32", series:"Dog Man", title:"Fetch-22", author:"Dav Pilkey", isbn:"9781338323214", status:"unread", cover:"covers/b32.jpg" },
+    { id:"b33", series:"Dog Man", title:"Dog Man: Grime and Punishment", author:"Dav Pilkey", isbn:"9781338535624", status:"unread", cover:"covers/b33.jpg" },
+    { id:"b34", series:"Dog Man", title:"Dog Man: Mothering Heights", author:"Dav Pilkey", isbn:"9781338680454", status:"unread", cover:"covers/b34.jpg" },
+    { id:"b36", series:"Dog Man", title:"Dog Man: Twenty Thousand Fleas Under the Sea", author:"Dav Pilkey", isbn:"9781338801910", status:"unread", cover:"covers/b36.jpg" },
+    { id:"b35", series:"Dog Man", title:"Dog Man: The Scarlet Shedder", author:"Dav Pilkey", isbn:"9781338896435", status:"unread", cover:"covers/b35.jpg" },
+    { id:"b38", series:"Dog Man", title:"Dog Man: Big Jim Begins", author:"Dav Pilkey", isbn:"9781338896459", status:"unread", cover:"covers/b38.jpg" },
+    { id:"b37", series:"Dog Man", title:"Dog Man: Big Jim Believes", author:"Dav Pilkey", isbn:"9781546176183", status:"unread", cover:"covers/b37.jpg" },
+    { id:"b31", series:"Dog Man", title:"Dog Man: For Whom the Ball Rolls", author:"Dav Pilkey", isbn:"9781338236590", status:"unread", cover:"covers/b31.jpg" },
     // Cat Kid Comic Club
-    { id:"b39", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club #2", author:"Dav Pilkey", status:"unread", cover:"covers/b39.jpg" },
-    { id:"b40", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club #3: On Purpose", author:"Dav Pilkey", status:"unread", cover:"covers/b40.jpg" },
-    { id:"b41", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club: Collaborations", author:"Dav Pilkey", status:"unread", cover:"covers/b41.jpg" },
-    { id:"b42", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club: Influencers", author:"Dav Pilkey", status:"unread", cover:"covers/b42.jpg" },
-    { id:"b43", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club", author:"Dav Pilkey", status:"unread", cover:"covers/b43.jpg" },
+    { id:"b39", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club #2", author:"Dav Pilkey", isbn:"9781338784855", status:"unread", cover:"covers/b39.jpg" },
+    { id:"b40", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club #3: On Purpose", author:"Dav Pilkey", isbn:"9781338801941", status:"unread", cover:"covers/b40.jpg" },
+    { id:"b41", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club: Collaborations", author:"Dav Pilkey", isbn:"9781338846621", status:"unread", cover:"covers/b41.jpg" },
+    { id:"b42", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club: Influencers", author:"Dav Pilkey", isbn:"9781338896398", status:"unread", cover:"covers/b42.jpg" },
+    { id:"b43", series:"Cat Kid Comic Club", title:"Cat Kid Comic Club", author:"Dav Pilkey", isbn:"9781338712766", status:"unread", cover:"covers/b43.jpg" },
     // The Baby-Sitters Club
-    { id:"b9", series:"The Baby-Sitters Club", title:"Kristy's Great Idea", author:"Ann M. Martin", status:"unread", cover:"covers/b9.jpg" },
-    { id:"b10", series:"The Baby-Sitters Club", title:"The Truth about Stacey", author:"Ann M. Martin", status:"unread", cover:"covers/b10.jpg" },
-    { id:"b11", series:"The Baby-Sitters Club", title:"Mary Anne Saves the Day", author:"Ann M. Martin", status:"unread", cover:"covers/b11.jpg" },
-    { id:"b12", series:"The Baby-Sitters Club", title:"Claudia and Mean Janine", author:"Ann M. Martin", status:"unread", cover:"covers/b12.jpg" },
-    { id:"b13", series:"The Baby-Sitters Club", title:"Dawn and the Impossible Three", author:"Ann M. Martin", status:"unread", cover:"covers/b13.jpg" },
-    { id:"b14", series:"The Baby-Sitters Club", title:"Kristy's Big Day", author:"Ann M. Martin", status:"unread", cover:"covers/b14.jpg" },
-    { id:"b15", series:"The Baby-Sitters Club", title:"Boy-Crazy Stacey", author:"Ann M. Martin", status:"unread", cover:"covers/b15.jpg" },
+    { id:"b9", series:"The Baby-Sitters Club", title:"Kristy's Great Idea", author:"Ann M. Martin", isbn:"9781338888232", status:"unread", cover:"covers/b9.jpg" },
+    { id:"b10", series:"The Baby-Sitters Club", title:"The Truth about Stacey", author:"Ann M. Martin", isbn:"9781338888249", status:"unread", cover:"covers/b10.jpg" },
+    { id:"b11", series:"The Baby-Sitters Club", title:"Mary Anne Saves the Day", author:"Ann M. Martin", isbn:"9781338888256", status:"unread", cover:"covers/b11.jpg" },
+    { id:"b12", series:"The Baby-Sitters Club", title:"Claudia and Mean Janine", author:"Ann M. Martin", isbn:"9781338888263", status:"unread", cover:"covers/b12.jpg" },
+    { id:"b13", series:"The Baby-Sitters Club", title:"Dawn and the Impossible Three", author:"Ann M. Martin", isbn:"9781338888270", status:"unread", cover:"covers/b13.jpg" },
+    { id:"b14", series:"The Baby-Sitters Club", title:"Kristy's Big Day", author:"Ann M. Martin", isbn:"9781338888287", status:"unread", cover:"covers/b14.jpg" },
+    { id:"b15", series:"The Baby-Sitters Club", title:"Boy-Crazy Stacey", author:"Ann M. Martin", isbn:"9781338888294", status:"unread", cover:"covers/b15.jpg" },
     // Magic Tree House — Chapter Books #1-28 (ordered, the reading ladder)
     { id:"mth1",  series:"Magic Tree House (Chapter Books)", title:"#1: Dinosaurs Before Dark", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth1.jpg" },
     { id:"mth2",  series:"Magic Tree House (Chapter Books)", title:"#2: The Knight at Dawn", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth2.jpg" },
@@ -745,17 +763,17 @@ window.PLAN = {
     { id:"mth27", series:"Magic Tree House (Chapter Books)", title:"#27: Thanksgiving on Thursday", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth27.jpg" },
     { id:"mth28", series:"Magic Tree House (Chapter Books)", title:"#28: High Tide in Hawaii", author:"Mary Pope Osborne", status:"unread", cover:"covers/mth28.jpg" },
     // Magic Tree House — Graphic Novels (from Libib)
-    { id:"b18", series:"Magic Tree House (Graphic Novels)", title:"Dinosaurs Before Dark", author:"Mary Pope Osborne", status:"unread", cover:"covers/b18.jpg" },
-    { id:"b19", series:"Magic Tree House (Graphic Novels)", title:"The Knight at Dawn", author:"Mary Pope Osborne", status:"unread", cover:"covers/b19.jpg" },
-    { id:"b20", series:"Magic Tree House (Graphic Novels)", title:"Mummies in the Morning", author:"Mary Pope Osborne", status:"unread", cover:"covers/b20.jpg" },
-    { id:"b21", series:"Magic Tree House (Graphic Novels)", title:"Night of the Ninjas", author:"Mary Pope Osborne", status:"unread", cover:"covers/b21.jpg" },
-    { id:"b22", series:"Magic Tree House (Graphic Novels)", title:"Afternoon on the Amazon", author:"Mary Pope Osborne", status:"unread", cover:"covers/b22.jpg" },
-    { id:"b23", series:"Magic Tree House (Graphic Novels)", title:"Sunset of the Sabertooth", author:"Mary Pope Osborne", status:"unread", cover:"covers/b23.jpg" },
-    { id:"b24", series:"Magic Tree House (Graphic Novels)", title:"Midnight on the Moon", author:"Mary Pope Osborne", status:"unread", cover:"covers/b24.jpg" },
+    { id:"b18", series:"Magic Tree House (Graphic Novels)", title:"Dinosaurs Before Dark", author:"Mary Pope Osborne", isbn:"9780593174715", status:"unread", cover:"covers/b18.jpg" },
+    { id:"b19", series:"Magic Tree House (Graphic Novels)", title:"The Knight at Dawn", author:"Mary Pope Osborne", isbn:"9780593174753", status:"unread", cover:"covers/b19.jpg" },
+    { id:"b20", series:"Magic Tree House (Graphic Novels)", title:"Mummies in the Morning", author:"Mary Pope Osborne", isbn:"9780593174791", status:"unread", cover:"covers/b20.jpg" },
+    { id:"b21", series:"Magic Tree House (Graphic Novels)", title:"Night of the Ninjas", author:"Mary Pope Osborne", isbn:"9780593488782", status:"unread", cover:"covers/b21.jpg" },
+    { id:"b22", series:"Magic Tree House (Graphic Novels)", title:"Afternoon on the Amazon", author:"Mary Pope Osborne", isbn:"9780593488829", status:"unread", cover:"covers/b22.jpg" },
+    { id:"b23", series:"Magic Tree House (Graphic Novels)", title:"Sunset of the Sabertooth", author:"Mary Pope Osborne", isbn:"9780593706008", status:"unread", cover:"covers/b23.jpg" },
+    { id:"b24", series:"Magic Tree House (Graphic Novels)", title:"Midnight on the Moon", author:"Mary Pope Osborne", isbn:"9780593706046", status:"unread", cover:"covers/b24.jpg" },
     // Wings of Fire
-    { id:"b17", series:"Wings of Fire", title:"Wings of Fire", author:"Tui T. Sutherland", status:"unread", cover:"covers/b17.jpg" },
+    { id:"b17", series:"Wings of Fire", title:"Wings of Fire", author:"Tui T. Sutherland", isbn:"9781338844832", status:"unread", cover:"covers/b17.jpg" },
     // Diary of a Wimpy Kid
-    { id:"b16", series:"Diary of a Wimpy Kid", title:"Partypooper", author:"Jeff Kinney", status:"unread", cover:"covers/b16.jpg" },
+    { id:"b16", series:"Diary of a Wimpy Kid", title:"Partypooper", author:"Jeff Kinney", isbn:"9781419782695", status:"unread", cover:"covers/b16.jpg" },
   ],
 
   /* ── IXL assigned skills (Aria's Summer target, "From your parent") — 166 unique
@@ -1041,8 +1059,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v22 · claude-proxy";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 22;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v23 · isbns-manage";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 23;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore"]; // what lives in the cloud doc
 const Store = {
@@ -1089,6 +1107,14 @@ const Store = {
       if (this.state.booksSeed === undefined) // first-ever seed only: Amulet #1-7 finished
         ["b4","b5","b6","b7","b8","b44","b1"].forEach(id=>{ const bk=this.state.books.find(x=>x.id===id); if(bk) bk.status="finished"; });
       this.state.booksSeed = 6; changed = true;
+    }
+    // v7: inject real ISBNs (from Aria's Libib export) into the EXISTING shelf without a
+    // rebuild — preserves every status AND any parent-uploaded cover. Additive only.
+    if ((this.state.booksSeed||0) < 7 && Array.isArray(this.state.books)){
+      const cfg = {}; PLAN.books.forEach(b=>{ cfg[b.id]=b; });
+      this.state.books.forEach(b=>{ const c=cfg[b.id];
+        if (c && c.isbn && b.isbn !== c.isbn){ b.isbn = c.isbn; changed = true; } });
+      this.state.booksSeed = 7; changed = true;
     }
     // Beast: SEED ONCE ONLY. Initialise the baseline the first time this account is set up;
     // NEVER overwrite real progress on later loads/deploys. (Earlier this re-ran on every
@@ -1782,8 +1808,9 @@ function renderBooks(){
       const dot = b.status==="finished" ? `<div class="statusDot" style="background:var(--green)">✓</div>`
                 : b.status==="reading"  ? `<div class="statusDot" style="background:var(--gold)">📖</div>`
                 : b.status==="prev"     ? `<div class="statusDot" style="background:#8a8275" title="Already read">✦</div>` : "";
+      const manage = editing ? `<button class="bManage" data-manage="${b.id}" title="Upload cover or remove">⋯</button>` : "";
       html += `<div class="bcard ${cls}${editing?' editable':''}" data-book="${b.id}">
-        <div class="cov">${img}${dot}</div>
+        <div class="cov">${img}${dot}${manage}</div>
         <div class="bt">${esc(b.title)}</div>
       </div>`;
     });
@@ -1812,6 +1839,9 @@ function renderBooks(){
         showToast(b.title+" → "+STATUS_LABEL[b.status]);
         if (booksFinished()>wasFin) celebrate();
       });
+    });
+    document.querySelectorAll(".bManage[data-manage]").forEach(el=>{
+      el.addEventListener("click",e=>{ e.stopPropagation(); openBookManage(el.getAttribute("data-manage")); });
     });
   }
 }
@@ -2589,6 +2619,68 @@ function closeCoverFixer(){
 }
 document.getElementById("covCancel").addEventListener("click", closeCoverFixer);
 document.getElementById("covGo").addEventListener("click", runCoverSearch);
+
+/* ============================================================
+   MANAGE A BOOK (parent-only): upload a cover photo or remove it.
+   Uploaded covers are downscaled + JPEG-compressed to a small
+   data: URL (kept under a byte budget) so they sync safely inside
+   the books doc without bloating it. book.cover is synced, so an
+   uploaded cover shows on every device.
+   ============================================================ */
+function readAsDataURL(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
+function drawScaled(dataUrl, maxW, quality){
+  return new Promise((res,rej)=>{ const im=new Image();
+    im.onload=()=>{ const scale=Math.min(1, maxW/im.width);
+      const w=Math.max(1,Math.round(im.width*scale)), h=Math.max(1,Math.round(im.height*scale));
+      const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+      cv.getContext("2d").drawImage(im,0,0,w,h);
+      res(cv.toDataURL("image/jpeg", quality)); };
+    im.onerror=rej; im.src=dataUrl; });
+}
+async function compressCover(file){           // returns a data: URL under ~110KB
+  const raw = await readAsDataURL(file);
+  let w=420, q=0.72, url = await drawScaled(raw, w, q);
+  for (let i=0; i<6 && url.length>110000; i++){ if (q>0.5) q-=0.1; else w=Math.round(w*0.82); url = await drawScaled(raw, w, q); }
+  return url;
+}
+let bmBook=null;
+function openBookManage(id){
+  const b=Store.state.books.find(x=>x.id===id); if(!b) return;
+  bmBook=b;
+  document.getElementById("bmTitle").textContent=b.title;
+  document.getElementById("bmSub").textContent=(b.series||"")+(b.isbn?` · ISBN ${b.isbn}`:"");
+  const img=document.getElementById("bmCover"), fb=document.getElementById("bmCoverFb");
+  if (b.cover){ img.style.display=""; fb.style.display="none"; img.onerror=()=>{ img.style.display="none"; fb.style.display=""; }; img.src=b.cover; }
+  else { img.removeAttribute("src"); img.style.display="none"; fb.style.display=""; }
+  document.getElementById("bmMsg").textContent="";
+  document.getElementById("bmFile").value="";
+  document.getElementById("bookManageModal").classList.add("show");
+}
+function closeBookManage(){ document.getElementById("bookManageModal").classList.remove("show"); bmBook=null; }
+document.getElementById("bmClose").addEventListener("click", closeBookManage);
+document.getElementById("bmUpload").addEventListener("click", ()=>document.getElementById("bmFile").click());
+document.getElementById("bmFile").addEventListener("change", async e=>{
+  const file=e.target.files&&e.target.files[0]; if(!file||!bmBook) return;
+  const msg=document.getElementById("bmMsg"); msg.textContent="Processing photo…"; msg.className="scanMsg";
+  try {
+    const url=await compressCover(file);
+    bmBook.cover=url; Store.save();
+    const img=document.getElementById("bmCover"), fb=document.getElementById("bmCoverFb");
+    img.style.display=""; fb.style.display="none"; img.src=url;
+    msg.textContent="✓ Cover updated — saved & syncing."; msg.className="scanMsg ok";
+    renderHeader(); if (view==="books") { const y=window.scrollY; renderBooks(); window.scrollTo(0,y); }
+    showToast("Cover updated 📚");
+  } catch(err){ msg.textContent="Couldn't read that image — try another photo."; msg.className="scanMsg err"; }
+});
+document.getElementById("bmDelete").addEventListener("click", ()=>{
+  if(!bmBook) return;
+  if(!window.confirm(`Remove "${bmBook.title}" from Aria's library? This can't be undone.`)) return;
+  const id=bmBook.id, title=bmBook.title;
+  Store.state.books=Store.state.books.filter(b=>b.id!==id);
+  Store.save(); closeBookManage();
+  renderHeader(); if (view==="books") renderBooks();
+  showToast(`Removed “${title}”`);
+});
 
 /* ============================================================
    NAV + PARENT MODE
