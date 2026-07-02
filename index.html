@@ -544,7 +544,7 @@ window.PLAN = {
   badges: [
     { id:"helper", icon:"🦸", name:"Super Helper",     desc:"Helped Mom & Dad 5 days this week" },
     { id:"smile",  icon:"😁", name:"Sparkle Smile",    desc:"Brushed morning & night 6 days" },
-    { id:"sib",    icon:"🧸", name:"Best Big Sister",  desc:"Played with Richit 5 days" },
+    { id:"sib",    icon:"🧸", name:"Best Sister",  desc:"Played with Richit 5 days" },
     { id:"grate",  icon:"🌟", name:"Grateful Heart",   desc:"Gratitude 6 days this week" },
   ],
   /* ── YEAR-LONG PLAN: 4 phases, each with its OWN daily task set + Grade-3 curriculum.
@@ -1072,8 +1072,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v28 · gratitude";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 28;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v29 · best-sister";     // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 29;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore","deletedBooks"]; // what lives in the cloud doc
 const Store = {
