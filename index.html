@@ -1072,8 +1072,8 @@ window.PLAN = {
    STORAGE LAYER  (swap to Firebase later — same get/set/save)
    ============================================================ */
 const SAVE_KEY = "ariaTracker.v1";
-window.APP_VERSION = "v29 · best-sister";     // bump each deploy; shown in the sync line so we can tell what a device is running
-window.APP_BUILD = 29;                       // ALWAYS bump together with version.json — the version gate compares these
+window.APP_VERSION = "v30 · journal-sync";    // bump each deploy; shown in the sync line so we can tell what a device is running
+window.APP_BUILD = 30;                       // ALWAYS bump together with version.json — the version gate compares these
 window.STALE = false;                        // set true when a newer build is live -> all cloud pushes pause
 const SYNC_FIELDS = ["completions","habits","books","beast","beastSeed","booksSeed","resources","ixl","beastRestore","deletedBooks"]; // what lives in the cloud doc
 const Store = {
@@ -2902,6 +2902,8 @@ const db   = initializeFirestore(app, { experimentalForceLongPolling: true });
 const famRef = doc(db, "families", "aria");
 const claimsRef = doc(db, "families", "aria-claims");   // Aria's self-marks (she can write this doc)
 let role = "none", unsub = null, claimsUnsub = null, claimsLoaded = false, claimsPendingPush = false;
+let cloudJournal = {};   // v30: latest journal map seen in the cloud — the journal APP also writes
+                         // journal.<day> here; pushes must union it or a stale tab erases those counts
 let pushTimer = null, claimsPushTimer = null;   // debounce for pushCloud / pushClaims
 let migrationPushes = 0;       // LOOP-BREAKER: max echo-pushes per session in response to snapshots
                                // (a stale-code device pushing an old seed must not start a write war)
@@ -2932,7 +2934,7 @@ window.AriaSync = {
     claimsPushTimer = setTimeout(()=>{
       const ackTimer = setTimeout(()=>{ syncStatus(false, "cloud not accepting writes (quota/offline?) — marks queued"); }, 12000);
       const c = Store.state.claims;
-      setDoc(claimsRef, { comp: c.comp||{}, hab: c.hab||{}, journal: c.journal||{}, beast: c.beast||{}, ixl: c.ixl||{}, gratitude: c.gratitude||{}, reward: c.reward||"" })
+      setDoc(claimsRef, { comp: c.comp||{}, hab: c.hab||{}, journal: mergeJournalMaps(c.journal, cloudJournal), beast: c.beast||{}, ixl: c.ixl||{}, gratitude: c.gratitude||{}, reward: c.reward||"" })
         .then(()=>{ clearTimeout(ackTimer); syncStatus(true); })
         .catch(e=>{ clearTimeout(ackTimer); console.warn("claims write failed:", e.message); syncStatus(false, "claims: "+e.message); });
     }, 800);
@@ -2983,6 +2985,7 @@ function startSync(){
     claimsUnsub = onSnapshot(claimsRef, (snap)=>{
       clearTimeout(claimsTimer);
       claimsLoaded = true;
+      if (snap.exists()) cloudJournal = (snap.data()||{}).journal || {};   // v30: remember journal-app writes
       const local = Store.state.claims || { comp:{}, hab:{} };
       const hasLocal = ["comp","hab","journal","beast","ixl"].some(k => Object.keys(local[k]||{}).length > 0);
       if (claimsPendingPush){
@@ -3003,6 +3006,16 @@ function startSync(){
       window.render && window.render();
     }, (err)=> console.warn("claims snapshot error:", err.message));
   }
+}
+
+// v30: Aria's Journal app auto-writes journal.<day> sentence counts into aria-claims.
+// A full-doc push from a device that hasn't seen that write yet would erase them, so
+// every push unions the journal map with the latest cloud copy — per-day MAX, so a
+// count never silently shrinks (the journal app re-syncs exact totals on any edit).
+function mergeJournalMaps(local, cloud){
+  const out = Object.assign({}, local || {});
+  for (const day in (cloud || {})){ out[day] = Math.max(out[day] || 0, cloud[day] || 0); }
+  return out;
 }
 
 // union src INTO dst (dst wins on conflicts — fresher local taps)
